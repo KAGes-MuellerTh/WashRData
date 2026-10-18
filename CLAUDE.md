@@ -36,6 +36,8 @@ custom_components/washrdata/
   diagnostics.py     Diagnose-Download mit allen Kurven
   sensor.py, binary_sensor.py, select.py, entity.py, config_flow.py, const.py
   strings.json, translations/{en,de}.json
+tools/
+  viewer.html        Kurven-Viewer für Diagnose-Dateien (eigenständige Seite, auch als Artifact veröffentlicht)
 tests/
   engine/            reine Engine-Tests auf simulierten Leistungskurven (sim.py)
   integration/       Tests mit echtem Home Assistant (pytest-homeassistant-custom-component)

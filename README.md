@@ -113,6 +113,20 @@ actions:
         {{ trigger.event.data.cycle.energy_kwh }} kWh.
 ```
 
+## Läufe grafisch ansehen
+
+Der **Kurven-Viewer** zeigt die Diagnose-Datei grafisch: alle Zyklen als Leistungskurven, mehrere
+übereinandergelegt, je Programm gefiltert, ruhige Phasen und Schwellen markiert, dazu Statistik je
+Programm. Lief beim Download gerade ein Waschgang, siehst du ihn mit den Referenzkurven, der
+Restzeit und dem erwarteten Ende.
+
+1. Diagnose-Datei herunterladen (siehe unten).
+2. Den Viewer öffnen ([`tools/viewer.html`](tools/viewer.html), als veröffentlichte Seite oder lokal
+   im Browser) und die Datei hineinziehen. Die Datei verlässt deinen Browser nicht.
+
+Für die Zeitachse direkt in Home Assistant reicht eine *Verlaufsdiagramm*-Karte mit dem
+Leistungssensor und `sensor.<name>_state`.
+
 ## Fehler melden und Verbesserungen vorschlagen
 
 Am meisten hilft die **Diagnose-Datei**. Sie enthält Einstellungen, gelernte Werte, Programme und die

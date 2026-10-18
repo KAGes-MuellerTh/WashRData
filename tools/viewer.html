@@ -1,0 +1,715 @@
+<title>WashRData Kurven</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: werkstatt bench — file strip on top, cycle list beside the oscilloscope-like curve panel, statistics below. */
+:root {
+  --bg: #eef3f4;
+  --surface: #ffffff;
+  --sunken: #f5f8f9;
+  --fg: #13232b;
+  --muted: #566a74;
+  --line: #d6e0e4;
+  --accent: #0b7480;
+  --accent-soft: #d7eef0;
+  --quiet: rgba(86, 106, 116, 0.13);
+  --warn: #9a5b00;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d151a; --surface: #152127; --sunken: #111b20; --fg: #e4edf0; --muted: #93a7b0;
+    --line: #273840; --accent: #3db3bd; --accent-soft: #173a3f; --quiet: rgba(147, 167, 176, 0.14);
+    --warn: #e0a23c;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d151a; --surface: #152127; --sunken: #111b20; --fg: #e4edf0; --muted: #93a7b0;
+  --line: #273840; --accent: #3db3bd; --accent-soft: #173a3f; --quiet: rgba(147, 167, 176, 0.14);
+  --warn: #e0a23c;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 20px; }
+h1, h2 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: 1.75rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.15rem; }
+.eyebrow { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.num { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+
+header.top { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; justify-content: space-between; }
+.title-block { display: grid; gap: 4px; min-width: 0; }
+.facts { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.9rem; color: var(--muted); }
+.facts b { color: var(--fg); font-weight: 600; }
+
+.drop {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  border: 1.5px dashed var(--line); border-radius: var(--r); padding: 10px 14px; background: var(--surface);
+}
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.btn {
+  font: inherit; font-weight: 600; font-size: 0.9rem; border-radius: 8px; padding: 7px 14px; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--surface);
+}
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:focus-visible, .chip:focus-visible, input:focus-visible, tr:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.notice { font-size: 0.85rem; padding: 8px 12px; border-radius: 8px; background: var(--accent-soft); color: var(--fg); }
+.notice.err { background: transparent; border: 1px solid var(--warn); color: var(--warn); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; min-width: 0; display: grid; gap: 12px; align-content: start; }
+.bench { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 900px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: inherit; font-size: 0.82rem; border: 1px solid var(--line); background: var(--sunken); color: var(--fg);
+  border-radius: 999px; padding: 3px 11px; cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--surface); border-color: var(--fg); }
+.list-scroll { overflow: auto; max-height: 560px; border-top: 1px solid var(--line); }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+th { text-align: left; font-weight: 600; color: var(--muted); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 8px 6px; position: sticky; top: 0; background: var(--surface); z-index: 1; }
+td { padding: 7px 6px; border-top: 1px solid var(--line); vertical-align: top; }
+tbody tr { cursor: pointer; }
+tbody tr:hover td { background: var(--sunken); }
+tbody tr.sel td { background: var(--accent-soft); }
+td.r, th.r { text-align: right; }
+td.nw { white-space: nowrap; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.prog { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tag { font-size: 0.68rem; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 4px; padding: 1px 5px; border: 1px solid var(--line); color: var(--muted); }
+.tag.auto { border-color: var(--accent); color: var(--accent); }
+.tag.flag { border-color: var(--warn); color: var(--warn); }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
+.toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.toggle button { font: inherit; font-size: 0.82rem; border: 0; background: var(--sunken); color: var(--fg); padding: 5px 10px; cursor: pointer; }
+.toggle button[aria-pressed="true"] { background: var(--fg); color: var(--surface); }
+.chart-box { position: relative; min-width: 0; }
+svg { display: block; width: 100%; overflow: visible; }
+svg text { fill: var(--muted); font-family: var(--font-data); font-size: 11px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.84rem; }
+.legend span { display: inline-flex; align-items: center; }
+.tip {
+  position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 10px; font-size: 0.8rem; box-shadow: 0 4px 16px rgba(0,0,0,0.12); min-width: 160px; z-index: 5;
+}
+.tip .row { display: flex; justify-content: space-between; gap: 12px; }
+.detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px 16px; }
+.kv { display: grid; gap: 1px; }
+.kv .v { font-family: var(--font-data); font-variant-numeric: tabular-nums; font-size: 1rem; }
+
+.live { border-color: var(--accent); }
+.live-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; }
+.pill { display: inline-flex; gap: 6px; align-items: center; font-size: 0.8rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+.stats-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 900px) { .stats-grid { grid-template-columns: minmax(0, 1fr); } }
+.range-cell { min-width: 140px; }
+#stats-table { min-width: 480px; }
+.hint { font-size: 0.85rem; color: var(--muted); max-width: 70ch; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="title-block">
+      <span class="eyebrow">WashRData · Diagnose</span>
+      <h1 id="dev-name">Kurven</h1>
+      <div class="facts" id="facts"></div>
+    </div>
+    <div class="drop" id="drop">
+      <input type="file" id="file" accept=".json,application/json" hidden>
+      <button class="btn" id="pick" type="button">Diagnose-Datei öffnen</button>
+      <span class="muted" style="font-size:0.85rem">oder hierher ziehen</span>
+    </div>
+  </header>
+  <div id="notice" class="notice"></div>
+
+  <section class="panel live" id="live" hidden>
+    <div class="live-head">
+      <div><span class="pill">Läuft beim Download</span></div>
+      <span class="muted" id="live-note" style="font-size:0.85rem"></span>
+    </div>
+    <div class="detail" id="live-detail"></div>
+    <div class="legend" id="live-legend"></div>
+    <div class="chart-box" id="live-chart"></div>
+  </section>
+
+  <div class="bench">
+    <section class="panel">
+      <div style="display:grid;gap:8px">
+        <h2>Zyklen</h2>
+        <div class="chips" id="filters" role="group" aria-label="Nach Programm filtern"></div>
+      </div>
+      <div class="list-scroll">
+        <table>
+          <thead><tr><th></th><th>Start</th><th class="r">Dauer</th><th class="r">kWh</th><th>Programm</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="toolbar">
+        <span class="muted" id="sel-count" style="font-size:0.85rem"></span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ghost" id="sel-filter" type="button">Alle gefilterten zeigen</button>
+          <button class="btn ghost" id="sel-clear" type="button">Auswahl leeren</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="toolbar">
+        <h2 id="chart-title">Leistungskurve</h2>
+        <div class="toggle" role="group" aria-label="Skala">
+          <button type="button" id="sc-lin" aria-pressed="true">Watt</button>
+          <button type="button" id="sc-log" aria-pressed="false">Wie die Erkennung</button>
+        </div>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="chart-box" id="chart"></div>
+      <p class="hint" id="chart-hint"></p>
+      <div class="detail" id="detail"></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Statistik</h2>
+    <div class="stats-grid">
+      <div style="min-width:0;display:grid;gap:8px">
+        <span class="eyebrow">Je Programm</span>
+        <div style="overflow-x:auto">
+          <table id="stats-table">
+            <thead style="white-space:nowrap"><tr><th>Programm</th><th class="r">Läufe</th><th class="r">Ø Dauer</th><th class="range-cell">Spanne Dauer</th><th class="r">Ø kWh</th></tr></thead>
+            <tbody id="stats"></tbody>
+          </table>
+        </div>
+      </div>
+      <div style="min-width:0;display:grid;gap:8px">
+        <span class="eyebrow">Energie je Lauf</span>
+        <div class="chart-box" id="energy"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const SERIES = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6", "--s7", "--s8"];
+  const NS = "http://www.w3.org/2000/svg";
+  const $ = (id) => document.getElementById(id);
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  const S = { data: null, cycles: [], current: null, programs: [], filter: "all", selected: [], scale: "lin", sample: true };
+
+  // ---------- formatting ----------
+  const fmtMin = (s) => {
+    const m = Math.round(s / 60);
+    return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`;
+  };
+  const fmtDate = (ts) => {
+    const d = new Date(ts * 1000);
+    const day = d.toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" }).replace(",", "");
+    return `${day} ${d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`;
+  };
+  const fmtKwh = (wh) => (wh / 1000).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtW = (w) => `${Math.round(w).toLocaleString("de-DE")} W`;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const el = (tag, attrs = {}, parent) => {
+    const n = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    if (parent) parent.appendChild(n);
+    return n;
+  };
+
+  // ---------- data ----------
+  function normalize(json) {
+    const d = json && json.data && json.data.tracker ? json.data : json;
+    if (!d || !d.tracker || !d.tracker.detector) throw new Error("Das ist keine WashRData-Diagnose: der Abschnitt „tracker“ fehlt.");
+    const det = d.tracker.detector;
+    const cycles = (d.tracker.cycles || []).map((c) => ({ ...c, duration: (c.end ?? c.start) - c.start }));
+    cycles.sort((a, b) => b.start - a.start);
+    let current = null;
+    if (det.cycle) {
+      const c = det.cycle;
+      current = { ...c, duration: Math.max(0, (det.last_ts ?? c.start) - c.start) };
+    }
+    return { d, cycles, current, programs: d.tracker.programs || [] };
+  }
+
+  function load(json, name, sample) {
+    const n = normalize(json);
+    S.data = n.d; S.cycles = n.cycles; S.current = n.current; S.programs = n.programs; S.sample = sample;
+    S.filter = "all";
+    S.selected = n.cycles.slice(0, 1).map((c) => c.start);
+    const notice = $("notice");
+    notice.className = "notice";
+    notice.textContent = sample
+      ? "Beispieldaten: drei erfundene Programme. Öffne deine Diagnose-Datei (Gerät > ⋮ > Diagnose herunterladen), um deine eigenen Läufe zu sehen. Die Datei bleibt in deinem Browser."
+      : `Geladen: ${name}. Die Datei bleibt in deinem Browser.`;
+    renderAll();
+  }
+
+  function showError(msg) {
+    const n = $("notice");
+    n.className = "notice err";
+    n.textContent = msg;
+  }
+
+  // Step-function value of a trace at offset t (seconds).
+  function valueAt(trace, t) {
+    let lo = 0, hi = trace.length - 1, ans = trace.length ? trace[0][1] : 0;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (trace[mid][0] <= t) { ans = trace[mid][1]; lo = mid + 1; } else hi = mid - 1;
+    }
+    return ans;
+  }
+
+  function quietSpans(c, stopW) {
+    const spans = [];
+    let from = null;
+    const tr = c.trace || [];
+    for (let i = 0; i < tr.length; i++) {
+      const [t, w] = tr[i];
+      if (w < stopW && from === null) from = t;
+      if (w >= stopW && from !== null) { spans.push([from, t]); from = null; }
+    }
+    if (from !== null) spans.push([from, c.duration]);
+    return spans.filter(([a, b]) => b - a >= 60);
+  }
+
+  const programColor = (p) => {
+    const i = S.programs.indexOf(p);
+    return i >= 0 ? css(SERIES[i % SERIES.length]) : css("--muted");
+  };
+
+  // ---------- header ----------
+  function renderHeader() {
+    const d = S.data;
+    $("dev-name").textContent = d.entry?.title || "Gerät";
+    const type = { washer: "Waschmaschine", dryer: "Trockner" }[d.entry?.data?.device_type] || d.entry?.data?.device_type || "";
+    const cfg = d.config || {};
+    const facts = [
+      type && `<span>${esc(type)}</span>`,
+      `<span><b class="num">${S.cycles.length}</b> Zyklen</span>`,
+      `<span><b class="num">${S.programs.length}</b> Programme</span>`,
+      cfg.start_power_w != null && `<span>Start ab <b class="num">${cfg.start_power_w} W</b>, ruhig unter <b class="num">${cfg.stop_power_w} W</b></span>`,
+      d.end_delay_s != null && `<span>Endverzögerung <b class="num">${fmtMin(d.end_delay_s)}</b></span>`,
+    ].filter(Boolean);
+    $("facts").innerHTML = facts.join("");
+  }
+
+  // ---------- list ----------
+  function filtered() {
+    if (S.filter === "all") return S.cycles;
+    if (S.filter === "none") return S.cycles.filter((c) => !c.program);
+    return S.cycles.filter((c) => c.program === S.filter);
+  }
+
+  function renderFilters() {
+    const box = $("filters");
+    box.innerHTML = "";
+    const opts = [["all", `Alle (${S.cycles.length})`]];
+    for (const p of S.programs) opts.push([p, `${p} (${S.cycles.filter((c) => c.program === p).length})`]);
+    const none = S.cycles.filter((c) => !c.program).length;
+    if (none) opts.push(["none", `Unbenannt (${none})`]);
+    for (const [key, label] of opts) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "chip"; b.textContent = label;
+      b.setAttribute("aria-pressed", String(S.filter === key));
+      b.onclick = () => { S.filter = key; renderFilters(); renderRows(); };
+      box.appendChild(b);
+    }
+  }
+
+  function selColor(start) {
+    const i = S.selected.indexOf(start);
+    if (i < 0) return null;
+    return S.selected.length > SERIES.length ? css("--accent") : css(SERIES[i]);
+  }
+
+  function renderRows() {
+    const tb = $("rows");
+    tb.innerHTML = "";
+    for (const c of filtered()) {
+      const tr = document.createElement("tr");
+      const sel = S.selected.includes(c.start);
+      if (sel) tr.className = "sel";
+      tr.tabIndex = 0;
+      const color = selColor(c.start);
+      const flags = [];
+      if (c.interrupted) flags.push(`<span class="tag flag">unterbrochen</span>`);
+      if (c.resumed) flags.push(`<span class="tag flag">${c.resumed}× fortgesetzt</span>`);
+      if (c.anti_crease_bursts) flags.push(`<span class="tag">Knitterschutz ${c.anti_crease_bursts}×</span>`);
+      const prog = c.program
+        ? `${esc(c.program)} <span class="tag ${c.program_source === "auto" ? "auto" : ""}">${c.program_source === "auto" ? "auto" : "Hand"}</span>`
+        : `<span class="muted">unbenannt</span>`;
+      const conf = c.match_confidence != null && c.program_source !== "manual" ? `<span class="muted num" style="font-size:0.78rem">${Math.round(c.match_confidence * 100)} %</span>` : "";
+      tr.innerHTML = `
+        <td><span class="swatch" style="background:${color || "transparent"};border:1px solid ${color || css("--line")}"></span></td>
+        <td class="num nw">${fmtDate(c.start)}</td>
+        <td class="r num nw">${fmtMin(c.duration)}</td>
+        <td class="r num nw">${fmtKwh(c.energy_wh)}</td>
+        <td><span class="prog">${prog} ${conf} ${flags.join(" ")}</span></td>`;
+      const toggle = () => {
+        if (sel) S.selected = S.selected.filter((s) => s !== c.start);
+        else S.selected = [...S.selected, c.start];
+        renderRows(); renderChart();
+      };
+      tr.onclick = toggle;
+      tr.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
+      tb.appendChild(tr);
+    }
+    const n = S.selected.length;
+    $("sel-count").textContent = n ? `${n} ausgewählt` : "Zeile antippen, um sie zu zeigen";
+  }
+
+  // ---------- curve chart ----------
+  const LOG_TICKS = [0, 10, 50, 200, 500, 1000, 2000, 4000];
+  const level = (w) => Math.log1p(w / 20);
+
+  function niceStep(maxMin) {
+    for (const s of [5, 10, 15, 30, 60]) if (maxMin / s <= 8) return s;
+    return 120;
+  }
+  function niceW(max) {
+    for (const s of [50, 100, 250, 500, 1000]) if (max / s <= 6) return s;
+    return 2000;
+  }
+
+  // lines: [{trace, duration, color, label, width, opacity}], opts: {quiet, now, endAt, cfg}
+  function drawCurves(box, lines, opts = {}) {
+    box.innerHTML = "";
+    const W = Math.max(300, box.clientWidth || 600), H = opts.height || 320;
+    const m = { l: 52, r: 14, t: 10, b: 28 };
+    const maxT = Math.max(60, ...lines.map((l) => l.duration), opts.endAt || 0);
+    const maxW = Math.max(50, ...lines.flatMap((l) => l.trace.map((p) => p[1])));
+    const log = S.scale === "log";
+    const yMax = log ? level(maxW * 1.1) : maxW * 1.08;
+    const x = (t) => m.l + (t / maxT) * (W - m.l - m.r);
+    const y = (w) => H - m.b - ((log ? level(w) : w) / yMax) * (H - m.t - m.b);
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Leistungskurven" }, box);
+
+    // grid + y axis
+    const yTicks = log ? LOG_TICKS.filter((w) => level(w) <= yMax) : (() => { const s = niceW(maxW); const a = []; for (let w = 0; w <= maxW * 1.08; w += s) a.push(w); return a; })();
+    for (const w of yTicks) {
+      el("line", { x1: m.l, x2: W - m.r, y1: y(w), y2: y(w), stroke: css("--line"), "stroke-width": 1 }, svg);
+      const t = el("text", { x: m.l - 6, y: y(w) + 4, "text-anchor": "end" }, svg);
+      t.textContent = w >= 1000 ? `${w / 1000} kW` : `${w} W`;
+    }
+    const step = niceStep(maxT / 60);
+    for (let mm = 0; mm * 60 <= maxT; mm += step) {
+      if (x(mm * 60) > W - m.r - 34) break;
+      const t = el("text", { x: x(mm * 60), y: H - 8, "text-anchor": "middle" }, svg);
+      t.textContent = mm >= 60 && mm % 60 === 0 ? `${mm / 60} h` : `${mm}`;
+    }
+    const unit = el("text", { x: W - m.r, y: H - 8, "text-anchor": "end" }, svg);
+    unit.textContent = "min";
+
+    // quiet spans and thresholds for a single cycle
+    if (opts.quiet) {
+      for (const [a, b] of opts.quiet) {
+        el("rect", { x: x(a), y: m.t, width: Math.max(1, x(b) - x(a)), height: H - m.t - m.b, fill: css("--quiet") }, svg);
+      }
+    }
+    if (opts.cfg) {
+      for (const [w, name] of [[opts.cfg.start_power_w, "Start"], [opts.cfg.stop_power_w, "ruhig"]]) {
+        if (w == null || (log ? level(w) : w) > yMax) continue;
+        el("line", { x1: m.l, x2: W - m.r, y1: y(w), y2: y(w), stroke: css("--muted"), "stroke-width": 1, "stroke-dasharray": "3 4" }, svg);
+        if (log) { const t = el("text", { x: W - m.r - 4, y: y(w) - 4, "text-anchor": "end" }, svg); t.textContent = `${name} ${w} W`; }
+      }
+    }
+    if (opts.now != null) {
+      el("line", { x1: x(opts.now), x2: x(opts.now), y1: m.t, y2: H - m.b, stroke: css("--fg"), "stroke-width": 1.5 }, svg);
+      const t = el("text", { x: x(opts.now) + 4, y: m.t + 10 }, svg); t.textContent = "jetzt";
+    }
+    if (opts.endAt != null) {
+      el("line", { x1: x(opts.endAt), x2: x(opts.endAt), y1: m.t, y2: H - m.b, stroke: css("--accent"), "stroke-width": 1.5, "stroke-dasharray": "5 4" }, svg);
+      const t = el("text", { x: x(opts.endAt) - 4, y: m.t + 24, "text-anchor": "end" }, svg); t.textContent = "erwartetes Ende";
+    }
+
+    // step lines
+    for (const l of lines) {
+      if (!l.trace.length) continue;
+      let d = `M${x(l.trace[0][0]).toFixed(1)},${y(l.trace[0][1]).toFixed(1)}`;
+      for (let i = 1; i < l.trace.length; i++) d += `H${x(l.trace[i][0]).toFixed(1)}V${y(l.trace[i][1]).toFixed(1)}`;
+      d += `H${x(l.duration).toFixed(1)}`;
+      el("path", { d, fill: "none", stroke: l.color, "stroke-width": l.width || 2, "stroke-opacity": l.opacity ?? 1, "stroke-linejoin": "round" }, svg);
+    }
+
+    // hover
+    const cross = el("line", { y1: m.t, y2: H - m.b, stroke: css("--muted"), "stroke-width": 1, visibility: "hidden" }, svg);
+    const hit = el("rect", { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent" }, svg);
+    const tip = document.createElement("div");
+    tip.className = "tip"; tip.hidden = true; box.appendChild(tip);
+    const move = (ev) => {
+      const r = svg.getBoundingClientRect();
+      const px = ((ev.clientX - r.left) / r.width) * W;
+      const t = Math.max(0, Math.min(maxT, ((px - m.l) / (W - m.l - m.r)) * maxT));
+      cross.setAttribute("x1", x(t)); cross.setAttribute("x2", x(t)); cross.setAttribute("visibility", "visible");
+      const rows = lines.filter((l) => t <= l.duration).slice(0, 10).map((l) =>
+        `<div class="row"><span><span class="swatch" style="background:${l.color}"></span>${esc(l.label)}</span><span class="num">${fmtW(valueAt(l.trace, t))}</span></div>`);
+      tip.innerHTML = `<div class="num" style="font-weight:600;margin-bottom:4px">${fmtMin(t)}</div>${rows.join("") || '<span class="muted">vorbei</span>'}`;
+      tip.hidden = false;
+      const bx = box.getBoundingClientRect();
+      let left = ev.clientX - bx.left + 14;
+      if (left + 200 > bx.width) left = ev.clientX - bx.left - 214;
+      tip.style.left = `${Math.max(0, left)}px`;
+      tip.style.top = `${Math.max(0, ev.clientY - bx.top - 20)}px`;
+    };
+    hit.addEventListener("pointermove", move);
+    hit.addEventListener("pointerdown", move);
+    hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+  }
+
+  function renderChart() {
+    const sel = S.selected.map((s) => S.cycles.find((c) => c.start === s)).filter(Boolean);
+    const box = $("chart"), legend = $("legend"), detail = $("detail"), hint = $("chart-hint");
+    legend.innerHTML = ""; detail.innerHTML = "";
+    if (!sel.length) {
+      box.innerHTML = `<p class="muted" style="padding:40px 0;text-align:center">Wähle links einen oder mehrere Zyklen.</p>`;
+      hint.textContent = "";
+      $("chart-title").textContent = "Leistungskurve";
+      return;
+    }
+    const bundle = sel.length > SERIES.length;
+    const lines = sel.map((c, i) => ({
+      trace: c.trace || [], duration: c.duration,
+      color: bundle ? css("--accent") : css(SERIES[i]),
+      opacity: bundle ? 0.45 : 1, width: bundle ? 1.5 : 2,
+      label: `${fmtDate(c.start)}${c.program ? " · " + c.program : ""}`,
+    }));
+    const single = sel.length === 1 ? sel[0] : null;
+    const cfg = S.data.config || {};
+    drawCurves(box, lines, single ? { quiet: quietSpans(single, cfg.stop_power_w ?? 4), cfg } : { cfg });
+    $("chart-title").textContent = single ? "Leistungskurve" : `${sel.length} Kurven übereinander`;
+    if (bundle) legend.innerHTML = `<span><span class="swatch" style="background:${css("--accent")}"></span>${sel.length} Läufe, als Bündel</span>`;
+    else legend.innerHTML = lines.map((l) => `<span><span class="swatch" style="background:${l.color}"></span>${esc(l.label)}</span>`).join("");
+
+    if (single) {
+      const c = single;
+      hint.textContent = "Graue Flächen: ruhige Phasen unter der Stoppleistung. Endet eine davon zu früh als „fertig“, liegt sie über der Endverzögerung.";
+      const pauses = (c.pauses || []).filter((p) => p > 0);
+      const kv = [
+        ["Start", fmtDate(c.start)], ["Dauer", fmtMin(c.duration)], ["Energie", `${fmtKwh(c.energy_wh)} kWh`],
+        ["Spitze", fmtW(c.peak_power_w || 0)],
+        ["Pausen", pauses.length ? `${pauses.length}, längste ${fmtMin(Math.max(...pauses))}` : "keine"],
+        ["Programm", c.program ? `${c.program}${c.program_source === "auto" ? " (auto)" : ""}` : "unbenannt"],
+        ["Sicherheit am Ende", c.match_confidence != null ? `${Math.round(c.match_confidence * 100)} %` : "–"],
+        ["Zyklus-ID", String(Math.trunc(c.start))],
+      ];
+      detail.innerHTML = kv.map(([k, v]) => `<div class="kv"><span class="eyebrow">${k}</span><span class="v">${esc(v)}</span></div>`).join("");
+    } else {
+      hint.textContent = S.scale === "log"
+        ? "Diese Skala staucht wie die Erkennung: Heizen und Trommel unterscheiden sich deutlich, kleine Standby-Werte kaum."
+        : "Liegen die Kurven eines Programms eng beieinander, erkennt WashRData es zuverlässig.";
+    }
+  }
+
+  // ---------- running cycle ----------
+  function renderLive() {
+    const c = S.current, sec = $("live");
+    if (!c) { sec.hidden = true; return; }
+    sec.hidden = false;
+    const match = S.data.match;
+    const refsIds = match && match.program ? (S.data.references?.[match.program] || []) : [];
+    const refs = S.cycles.filter((r) => refsIds.includes(String(Math.trunc(r.start))));
+    const remaining = match && match.program ? match.remaining_s : null;
+    const kv = [
+      ["Gestartet", fmtDate(c.start)], ["Läuft seit", fmtMin(c.duration)],
+      ["Programm", match?.program ? `${match.program}${match.manual ? " (Hand)" : ""}` : "noch unklar"],
+      ["Sicherheit", match ? `${Math.round(match.confidence * 100)} %` : "–"],
+      ["Restzeit", remaining != null ? fmtMin(remaining) : "–"],
+      ["Energie bisher", `${fmtKwh(c.energy_wh)} kWh`],
+    ];
+    $("live-detail").innerHTML = kv.map(([k, v]) => `<div class="kv"><span class="eyebrow">${k}</span><span class="v">${esc(v)}</span></div>`).join("");
+    const cands = (match?.candidates || []).map(([p, s]) => `${p} ${s.toFixed(2)}`).join(" · ");
+    $("live-note").textContent = cands ? `Abstand je Programm (kleiner passt besser): ${cands}` : "";
+    const lines = refs.map((r) => ({ trace: r.trace || [], duration: r.duration, color: css("--muted"), opacity: 0.55, width: 1.5, label: `Referenz ${fmtDate(r.start)}` }));
+    lines.push({ trace: c.trace || [], duration: c.duration, color: css("--accent"), width: 2.5, label: "Dieser Lauf" });
+    $("live-legend").innerHTML =
+      `<span><span class="swatch" style="background:${css("--accent")}"></span>Dieser Lauf</span>` +
+      (refs.length ? `<span><span class="swatch" style="background:${css("--muted")}"></span>${refs.length} Referenzen von ${esc(match.program)}</span>` : "");
+    drawCurves($("live-chart"), lines, { now: c.duration, endAt: remaining != null ? c.duration + remaining : null, height: 260 });
+  }
+
+  // ---------- statistics ----------
+  function renderStats() {
+    const groups = [...S.programs.map((p) => [p, S.cycles.filter((c) => c.program === p && !c.interrupted)])];
+    const none = S.cycles.filter((c) => !c.program && !c.interrupted);
+    if (none.length) groups.push([null, none]);
+    const all = groups.flatMap(([, cs]) => cs.map((c) => c.duration));
+    const maxD = Math.max(1, ...all);
+    const tb = $("stats");
+    tb.innerHTML = "";
+    for (const [p, cs] of groups) {
+      const tr = document.createElement("tr");
+      if (!cs.length) {
+        tr.innerHTML = `<td>${esc(p)}</td><td class="r num">0</td><td class="r muted">–</td><td></td><td class="r muted">–</td>`;
+        tb.appendChild(tr); continue;
+      }
+      const ds = cs.map((c) => c.duration), avg = ds.reduce((a, b) => a + b, 0) / ds.length;
+      const lo = Math.min(...ds), hi = Math.max(...ds);
+      const kwh = cs.reduce((a, c) => a + c.energy_wh, 0) / cs.length;
+      const color = p ? programColor(p) : css("--muted");
+      const pct = (v) => (v / maxD) * 100;
+      tr.innerHTML = `
+        <td>${p ? `<span class="swatch" style="background:${color}"></span>${esc(p)}` : '<span class="muted">unbenannt</span>'}</td>
+        <td class="r num">${cs.length}</td>
+        <td class="r num">${fmtMin(avg)}</td>
+        <td class="range-cell" title="${fmtMin(lo)} bis ${fmtMin(hi)}">
+          <div style="position:relative;height:14px;background:var(--sunken);border-radius:4px">
+            <div style="position:absolute;left:${pct(lo)}%;width:${Math.max(1, pct(hi) - pct(lo))}%;top:3px;height:8px;border-radius:4px;background:${color};opacity:.55"></div>
+            <div style="position:absolute;left:calc(${pct(avg)}% - 1px);top:0;width:2px;height:14px;background:var(--fg)"></div>
+          </div>
+          <div class="muted num" style="font-size:0.72rem">${fmtMin(lo)} – ${fmtMin(hi)}</div>
+        </td>
+        <td class="r num">${fmtKwh(kwh)}</td>`;
+      tb.appendChild(tr);
+    }
+    renderEnergy();
+  }
+
+  function renderEnergy() {
+    const box = $("energy");
+    box.innerHTML = "";
+    const cs = [...S.cycles].sort((a, b) => a.start - b.start).slice(-40);
+    if (!cs.length) { box.innerHTML = '<p class="muted">Noch keine Zyklen.</p>'; return; }
+    const W = Math.max(280, box.clientWidth || 500), H = 200, m = { l: 46, r: 8, t: 8, b: 24 };
+    const maxE = Math.max(0.1, ...cs.map((c) => c.energy_wh / 1000));
+    const step = maxE > 2 ? 1 : maxE > 1 ? 0.5 : 0.25;
+    const top = Math.ceil((maxE * 1.05) / step) * step;
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Energie je Lauf" }, box);
+    const y = (v) => H - m.b - (v / top) * (H - m.t - m.b);
+    for (let v = 0; v <= top + 1e-9; v += step) {
+      el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: css("--line") }, svg);
+      const t = el("text", { x: m.l - 6, y: y(v) + 4, "text-anchor": "end" }, svg);
+      t.textContent = `${v.toLocaleString("de-DE")} kWh`;
+    }
+    const slot = (W - m.l - m.r) / cs.length, bw = Math.max(3, Math.min(22, slot - 2));
+    const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; box.appendChild(tip);
+    cs.forEach((c, i) => {
+      const v = c.energy_wh / 1000, bx = m.l + i * slot + (slot - bw) / 2;
+      const h = Math.max(1, H - m.b - y(v));
+      const r = Math.min(4, bw / 2);
+      const y0 = H - m.b, y1 = y0 - h;
+      el("path", { d: `M${bx},${y0}V${y1 + r}Q${bx},${y1} ${bx + r},${y1}H${bx + bw - r}Q${bx + bw},${y1} ${bx + bw},${y1 + r}V${y0}Z`, fill: c.program ? programColor(c.program) : css("--muted") }, svg);
+      const hit = el("rect", { x: m.l + i * slot, y: m.t, width: slot, height: H - m.t - m.b, fill: "transparent" }, svg);
+      const show = (ev) => {
+        tip.innerHTML = `<div class="num" style="font-weight:600">${fmtDate(c.start)}</div><div>${esc(c.program || "unbenannt")}</div><div class="row"><span>Energie</span><span class="num">${fmtKwh(c.energy_wh)} kWh</span></div><div class="row"><span>Dauer</span><span class="num">${fmtMin(c.duration)}</span></div>`;
+        tip.hidden = false;
+        const b = box.getBoundingClientRect();
+        let left = ev.clientX - b.left + 12;
+        if (left + 190 > b.width) left = ev.clientX - b.left - 200;
+        tip.style.left = `${Math.max(0, left)}px`; tip.style.top = `${Math.max(0, ev.clientY - b.top - 60)}px`;
+      };
+      hit.addEventListener("pointermove", show); hit.addEventListener("pointerdown", show);
+      hit.addEventListener("pointerleave", () => (tip.hidden = true));
+    });
+    const first = el("text", { x: m.l, y: H - 6 }, svg); first.textContent = new Date(cs[0].start * 1000).toLocaleDateString("de-DE");
+    const last = el("text", { x: W - m.r, y: H - 6, "text-anchor": "end" }, svg); last.textContent = new Date(cs[cs.length - 1].start * 1000).toLocaleDateString("de-DE");
+  }
+
+  function renderAll() {
+    renderHeader(); renderFilters(); renderRows(); renderChart(); renderLive(); renderStats();
+  }
+
+  // ---------- controls ----------
+  $("pick").onclick = () => $("file").click();
+  $("file").onchange = (e) => readFile(e.target.files[0]);
+  const drop = $("drop");
+  for (const t of [document.body]) {
+    t.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+    t.addEventListener("dragleave", (e) => { if (e.target === document.body) drop.classList.remove("over"); });
+    t.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); readFile(e.dataTransfer.files[0]); });
+  }
+  function readFile(f) {
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try { load(JSON.parse(r.result), f.name, false); }
+      catch (err) { showError(err instanceof SyntaxError ? `${f.name} ist keine gültige JSON-Datei.` : err.message); }
+    };
+    r.readAsText(f);
+  }
+  $("sel-clear").onclick = () => { S.selected = []; renderRows(); renderChart(); };
+  $("sel-filter").onclick = () => { S.selected = filtered().map((c) => c.start); renderRows(); renderChart(); };
+  const setScale = (s) => {
+    S.scale = s;
+    $("sc-lin").setAttribute("aria-pressed", String(s === "lin"));
+    $("sc-log").setAttribute("aria-pressed", String(s === "log"));
+    renderChart(); renderLive();
+  };
+  $("sc-lin").onclick = () => setScale("lin");
+  $("sc-log").onclick = () => setScale("log");
+  let rt;
+  new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(() => { if (S.data) { renderChart(); renderLive(); renderEnergy(); } }, 120); }).observe(document.querySelector(".wrap"));
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => S.data && renderAll());
+  new MutationObserver(() => S.data && renderAll()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  // ---------- sample data (invented, clearly marked) ----------
+  function sample() {
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const P = {
+      "Baumwolle 60": [[2, 15], [20, 2000], [40, 250], [3, 6], [8, 450]],
+      "Kurz 30": [[2, 15], [25, 250], [5, 450]],
+      "Eco 40": [[2, 15], [10, 1500], [12, 1], [30, 250], [8, 450]],
+    };
+    const make = (name, start, upTo) => {
+      const trace = []; let t = 0, e = 0, peak = 0;
+      for (const [mins, w] of P[name]) {
+        const dur = mins * 60 * (mins >= 10 ? 0.9 + rnd() * 0.2 : 1);
+        for (let s = 0; s < dur; s += 60) {
+          const v = w > 20 ? w * (0.85 + rnd() * 0.3) : w;
+          trace.push([Math.round(t + s), Math.round(v * 10) / 10]);
+          e += v * Math.min(60, dur - s) / 3600; peak = Math.max(peak, v);
+        }
+        t += dur;
+        if (upTo && t > upTo) break;
+      }
+      const end = upTo ? null : start + Math.round(t);
+      return { start, end, energy_wh: e, peak_power_w: peak, pauses: name === "Eco 40" ? [720] : [], resumed: 0, interrupted: false, anti_crease_bursts: 0, trace: upTo ? trace.filter((p) => p[0] <= upTo) : trace };
+    };
+    const now = Math.floor(Date.now() / 1000);
+    const plan = [["Kurz 30", 13], ["Baumwolle 60", 12], ["Eco 40", 10], ["Baumwolle 60", 9], ["Kurz 30", 7], ["Baumwolle 60", 5], ["Eco 40", 4], ["Kurz 30", 2], ["Baumwolle 60", 1]];
+    const cycles = plan.map(([p, daysAgo], i) => {
+      const c = make(p, now - daysAgo * 86400 - 3600 * (2 + (i % 5)));
+      if (i < 6) { c.program = p; c.program_source = "manual"; } else if (i < 8) { c.program = p; c.program_source = "auto"; c.match_confidence = 0.86 + rnd() * 0.1; }
+      else { c.match_confidence = 0.31; }
+      return c;
+    });
+    const running = make("Baumwolle 60", now - 1800, 1800);
+    const refs = cycles.filter((c) => c.program === "Baumwolle 60").map((c) => String(c.start));
+    return {
+      entry: { title: "Waschmaschine (Beispiel)", data: { device_type: "washer", power_sensor: "sensor.waschmaschine_leistung" } },
+      config: { start_power_w: 8, stop_power_w: 4 },
+      end_delay_s: 1020,
+      match: { program: "Baumwolle 60", confidence: 0.93, remaining_s: 2420, expected_duration_s: 4220, manual: false, candidates: [["Baumwolle 60", 0.052], ["Eco 40", 0.61], ["Kurz 30", 1.3]] },
+      references: { "Baumwolle 60": refs },
+      tracker: { programs: Object.keys(P), cycles, detector: { state: "running", cycle: running, last_ts: now } },
+    };
+  }
+
+  load(sample(), "Beispiel", true);
+})();
+</script>
