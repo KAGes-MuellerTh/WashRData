@@ -1,0 +1,93 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Gerät hinzufügen",
+        "description": "Überwacht ein Gerät über den Leistungssensor seiner smarten Steckdose.",
+        "data": {
+          "name": "Name",
+          "device_type": "Gerätetyp",
+          "power_sensor": "Leistungssensor"
+        },
+        "data_description": {
+          "power_sensor": "Leistungssensor der smarten Steckdose (W oder kW)."
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Dieser Leistungssensor wird bereits überwacht."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Erkennungseinstellungen",
+        "description": "Die Standardwerte kommen vom Gerätetyp. Die Endverzögerung ist ein Mindestwert: WashRData erhöht sie, wenn deine Programme längere Ruhephasen haben.",
+        "data": {
+          "start_power_w": "Startleistung",
+          "stop_power_w": "Stoppleistung",
+          "end_delay_min": "Endverzögerung",
+          "anti_crease": "Knitterschutz erkennen"
+        },
+        "data_description": {
+          "start_power_w": "Ab dieser Leistung gilt das Gerät als aktiv.",
+          "stop_power_w": "Unter dieser Leistung gilt das Gerät als ruhig. Darf nicht über der Startleistung liegen.",
+          "end_delay_min": "Ruhezeit, nach der ein Zyklus als beendet gilt.",
+          "anti_crease": "Kurze Trommelbewegungen nach dem Ende sind Knitterschutz, kein neuer Zyklus."
+        }
+      }
+    },
+    "error": {
+      "stop_above_start": "Die Stoppleistung darf nicht über der Startleistung liegen."
+    }
+  },
+  "selector": {
+    "device_type": {
+      "options": {
+        "washer": "Waschmaschine",
+        "dryer": "Trockner"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "running": {
+        "name": "Läuft"
+      }
+    },
+    "sensor": {
+      "state": {
+        "name": "Status",
+        "state": {
+          "idle": "Bereit",
+          "starting": "Startet",
+          "running": "Läuft",
+          "paused": "Pausiert",
+          "finished": "Fertig",
+          "anti_crease": "Knitterschutz"
+        }
+      },
+      "cycle_duration": {
+        "name": "Zyklusdauer"
+      },
+      "cycle_energy": {
+        "name": "Zyklusenergie"
+      },
+      "last_cycle_duration": {
+        "name": "Dauer letzter Zyklus"
+      },
+      "last_cycle_energy": {
+        "name": "Energie letzter Zyklus"
+      },
+      "cycle_count": {
+        "name": "Anzahl Zyklen"
+      },
+      "energy_total": {
+        "name": "Gesamtenergie"
+      },
+      "end_delay": {
+        "name": "Endverzögerung"
+      }
+    }
+  }
+}

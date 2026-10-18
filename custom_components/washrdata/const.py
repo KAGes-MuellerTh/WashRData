@@ -1,0 +1,49 @@
+"""Constants of the WashRData integration."""
+
+from __future__ import annotations
+
+from datetime import timedelta
+from typing import Any
+
+from homeassistant.const import Platform
+
+from .engine import PRESETS, DetectorConfig, DeviceType
+
+DOMAIN = "washrdata"
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
+
+CONF_DEVICE_TYPE = "device_type"
+CONF_POWER_SENSOR = "power_sensor"
+
+# Options, shown in the options flow. End delay is entered in minutes.
+OPT_START_POWER = "start_power_w"
+OPT_STOP_POWER = "stop_power_w"
+OPT_END_DELAY_MIN = "end_delay_min"
+OPT_ANTI_CREASE = "anti_crease"
+
+STORAGE_VERSION = 1
+SAVE_DELAY_S = 30
+MAX_STORED_CYCLES = 50
+# Lets timeouts fire when the plug only reports changes.
+TICK_INTERVAL = timedelta(seconds=30)
+
+
+def signal_update(entry_id: str) -> str:
+    return f"{DOMAIN}_update_{entry_id}"
+
+
+def build_config(device_type: DeviceType, options: dict[str, Any]) -> DetectorConfig:
+    """Device type preset with the user's options applied."""
+    preset = PRESETS[device_type]
+    overrides: dict[str, Any] = {}
+    if OPT_START_POWER in options:
+        overrides["start_power_w"] = float(options[OPT_START_POWER])
+    if OPT_STOP_POWER in options:
+        overrides["stop_power_w"] = float(options[OPT_STOP_POWER])
+    if OPT_END_DELAY_MIN in options:
+        end_delay = float(options[OPT_END_DELAY_MIN]) * 60
+        overrides["end_delay_s"] = end_delay
+        overrides["max_end_delay_s"] = max(preset.max_end_delay_s, end_delay)
+    if OPT_ANTI_CREASE in options:
+        overrides["anti_crease"] = bool(options[OPT_ANTI_CREASE])
+    return preset.with_overrides(overrides)

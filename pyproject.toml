@@ -1,0 +1,20 @@
+[project]
+name = "washrdata"
+version = "0.1.0"
+requires-python = ">=3.13"
+
+[tool.pytest.ini_options]
+# The engine is importable on its own (`import engine`) so its tests need no Home Assistant.
+pythonpath = [".", "custom_components/washrdata"]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components", "engine"]

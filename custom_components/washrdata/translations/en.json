@@ -1,0 +1,93 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add appliance",
+        "description": "Monitor an appliance through the power sensor of its smart plug.",
+        "data": {
+          "name": "Name",
+          "device_type": "Device type",
+          "power_sensor": "Power sensor"
+        },
+        "data_description": {
+          "power_sensor": "Power sensor of the smart plug (W or kW)."
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This power sensor is already monitored."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Detection settings",
+        "description": "Defaults come from the device type. The end delay is a minimum: WashRData raises it when your programs have longer quiet spells.",
+        "data": {
+          "start_power_w": "Start power",
+          "stop_power_w": "Stop power",
+          "end_delay_min": "End delay",
+          "anti_crease": "Anti-crease detection"
+        },
+        "data_description": {
+          "start_power_w": "At or above this power the appliance counts as active.",
+          "stop_power_w": "Below this power the appliance counts as quiet. Must not be above the start power.",
+          "end_delay_min": "Quiet time after which a cycle counts as finished.",
+          "anti_crease": "Short drum turns after the end are anti-crease, not a new cycle."
+        }
+      }
+    },
+    "error": {
+      "stop_above_start": "Stop power must not be above start power."
+    }
+  },
+  "selector": {
+    "device_type": {
+      "options": {
+        "washer": "Washing machine",
+        "dryer": "Dryer"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "running": {
+        "name": "Running"
+      }
+    },
+    "sensor": {
+      "state": {
+        "name": "State",
+        "state": {
+          "idle": "Idle",
+          "starting": "Starting",
+          "running": "Running",
+          "paused": "Paused",
+          "finished": "Finished",
+          "anti_crease": "Anti-crease"
+        }
+      },
+      "cycle_duration": {
+        "name": "Cycle duration"
+      },
+      "cycle_energy": {
+        "name": "Cycle energy"
+      },
+      "last_cycle_duration": {
+        "name": "Last cycle duration"
+      },
+      "last_cycle_energy": {
+        "name": "Last cycle energy"
+      },
+      "cycle_count": {
+        "name": "Cycle count"
+      },
+      "energy_total": {
+        "name": "Total energy"
+      },
+      "end_delay": {
+        "name": "End delay"
+      }
+    }
+  }
+}
