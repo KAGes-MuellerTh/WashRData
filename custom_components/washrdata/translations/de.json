@@ -87,7 +87,107 @@
       },
       "end_delay": {
         "name": "Endverzögerung"
+      },
+      "program": {
+        "name": "Programm"
+      },
+      "time_remaining": {
+        "name": "Restzeit"
+      },
+      "expected_end": {
+        "name": "Voraussichtliches Ende"
+      },
+      "progress": {
+        "name": "Fortschritt"
       }
+    },
+    "select": {
+      "program_select": {
+        "name": "Programm",
+        "state": {
+          "none": "Kein Programm"
+        }
+      }
+    }
+  },
+  "services": {
+    "label_cycle": {
+      "name": "Zyklus benennen",
+      "description": "Ordnet einem Zyklus ein Programm zu. Unbekannte Programme werden angelegt. Benannte Zyklen dienen zur Erkennung des Programms bei künftigen Läufen.",
+      "fields": {
+        "device_id": {
+          "name": "Gerät",
+          "description": "Das WashRData-Gerät."
+        },
+        "program": {
+          "name": "Programm",
+          "description": "Programmname. Leer lassen, um die Zuordnung zu entfernen."
+        },
+        "cycle": {
+          "name": "Zyklus",
+          "description": "\"current\", \"last\" oder eine Zyklus-ID aus der Diagnose. Standard: der laufende Zyklus, sonst der letzte."
+        }
+      }
+    },
+    "create_program": {
+      "name": "Programm anlegen",
+      "description": "Fügt der Programm-Auswahl ein Programm hinzu.",
+      "fields": {
+        "device_id": {
+          "name": "Gerät",
+          "description": "Das WashRData-Gerät."
+        },
+        "program": {
+          "name": "Programm",
+          "description": "Programmname."
+        }
+      }
+    },
+    "rename_program": {
+      "name": "Programm umbenennen",
+      "description": "Benennt ein Programm um, samt seiner Zyklen.",
+      "fields": {
+        "device_id": {
+          "name": "Gerät",
+          "description": "Das WashRData-Gerät."
+        },
+        "program": {
+          "name": "Programm",
+          "description": "Bisheriger Name."
+        },
+        "new_name": {
+          "name": "Neuer Name",
+          "description": "Neuer Name."
+        }
+      }
+    },
+    "delete_program": {
+      "name": "Programm löschen",
+      "description": "Löscht ein Programm. Seine Zyklen bleiben erhalten, ohne Zuordnung.",
+      "fields": {
+        "device_id": {
+          "name": "Gerät",
+          "description": "Das WashRData-Gerät."
+        },
+        "program": {
+          "name": "Programm",
+          "description": "Programmname."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "unknown_device": {
+      "message": "{device_id} ist kein geladenes WashRData-Gerät."
+    },
+    "unknown_cycle": {
+      "message": "Kein Zyklus {cycle}."
+    },
+    "unknown_program": {
+      "message": "Kein Programm namens {program}."
+    },
+    "program_exists": {
+      "message": "Ein Programm namens {program} gibt es schon."
     }
   }
 }

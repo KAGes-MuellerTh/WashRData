@@ -10,10 +10,13 @@ from homeassistant.const import Platform
 from .engine import PRESETS, DetectorConfig, DeviceType
 
 DOMAIN = "washrdata"
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.SELECT, Platform.SENSOR]
 
 CONF_DEVICE_TYPE = "device_type"
 CONF_POWER_SENSOR = "power_sensor"
+
+# Option of the program select that means "no program".
+NO_PROGRAM = "none"
 
 # Options, shown in the options flow. End delay is entered in minutes.
 OPT_START_POWER = "start_power_w"
@@ -23,7 +26,6 @@ OPT_ANTI_CREASE = "anti_crease"
 
 STORAGE_VERSION = 1
 SAVE_DELAY_S = 30
-MAX_STORED_CYCLES = 50
 # Lets timeouts fire when the plug only reports changes.
 TICK_INTERVAL = timedelta(seconds=30)
 

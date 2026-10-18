@@ -4,7 +4,7 @@ Home-Assistant-Integration, die Waschmaschine und Trockner über den Leistungsse
 Steckdose überwacht. Sie erkennt Start, Pausen und Ende eines Zyklus, misst Dauer und Energie und
 lernt aus den eigenen Zyklen, wie lange ein Programm ruhig sein kann, ohne fertig zu sein.
 
-> **Status:** 0.1, Grundgerüst. Programmerkennung und Restzeit kommen in 0.2, siehe
+> **Status:** 0.2: Zyklus-Erkennung, Programme, Programmerkennung und Restzeit. Weiteres siehe
 > [Konzept und Roadmap](docs/KONZEPT.md).
 
 > [!CAUTION]
@@ -18,6 +18,8 @@ lernt aus den eigenen Zyklen, wie lange ein Programm ruhig sein kann, ohne ferti
 - Endverzögerung, die mitlernt: Einweichen und lange Pausen beenden den Zyklus nicht.
 - Ein zu früh beendeter Zyklus wird fortgesetzt statt geteilt, und der Fehler wird gelernt.
 - Knitterschutz beim Trockner als eigener Zustand, nicht als neuer Zyklus.
+- Programme lernen: Zyklen benennen, danach erkennt WashRData das Programm beim nächsten Lauf,
+  zeigt Restzeit, Fortschritt und Ende-Uhrzeit und benennt sicher erkannte Läufe selbst.
 - Funktioniert mit Steckdosen, die nur Änderungen melden; übersteht Neustarts mitten im Programm.
 - Nur lokal, keine Abhängigkeiten.
 
@@ -32,22 +34,67 @@ Danach **Einstellungen > Geräte & Dienste > Integration hinzufügen > WashRData
 Leistungssensor wählen. Schwellen und Endverzögerung lassen sich in den Optionen anpassen, die
 Standardwerte passen für die meisten Geräte.
 
+## Programme anlernen
+
+WashRData bringt keine Programme mit; jede Maschine ist anders. So lernt es deine:
+
+1. **Programme anlegen:** Entwicklerwerkzeuge > Aktionen > *WashRData: Programm anlegen*, Gerät
+   wählen, Name eingeben (z. B. „Baumwolle 60“). Oder direkt beim Benennen (Schritt 3) einen neuen
+   Namen über *WashRData: Zyklus benennen* vergeben.
+2. **Waschen** wie immer. Jeder Lauf wird mit Leistungskurve gespeichert.
+3. **Benennen:** in `select.<name>_program` das Programm wählen. Während eines Laufs benennt das den
+   laufenden Zyklus, danach den letzten.
+
+Nach **zwei benannten Läufen** pro Programm erkennt WashRData es meist schon nach wenigen Minuten.
+Programme, die sich nur in Temperatur oder Schleuderdrehzahl unterscheiden, sehen ähnlich aus. Hier
+helfen mehr Läufe, oder du fasst sie zu einem Programm zusammen.
+
+- Ist die Erkennung sicher genug (Attribut `confidence` am Programm-Sensor), zeigen Programm,
+  Restzeit, Fortschritt und Ende-Uhrzeit Werte. Die Auswahl zeigt das erkannte Programm.
+- Am Ende benennt WashRData sicher erkannte Läufe selbst (`program_source: auto`). So werden die
+  Referenzen aktueller. Falsch? In der Auswahl korrigieren: Von Hand gewählt geht immer vor.
+- Weiß WashRData, dass das Programm noch läuft, meldet es während einer Einweich-Pause nicht
+  „fertig“.
+
 ## Entitäten
 
 | Entität | Inhalt |
 | :--- | :--- |
 | `sensor.<name>_state` | `idle`, `starting`, `running`, `paused`, `finished`, `anti_crease` |
 | `binary_sensor.<name>_running` | An während des ganzen Zyklus, auch in Pausen |
+| `sensor.<name>_program` | Erkanntes oder gewähltes Programm; Attribute `confidence` (%), `candidates` |
+| `select.<name>_program` | Programm des laufenden bzw. letzten Zyklus anzeigen und setzen |
+| `sensor.<name>_time_remaining` | Restzeit (min) |
+| `sensor.<name>_expected_end` | Voraussichtliches Ende (Uhrzeit) |
+| `sensor.<name>_progress` | Fortschritt (%) |
 | `sensor.<name>_cycle_duration` / `_cycle_energy` | Aktueller Zyklus |
 | `sensor.<name>_last_cycle_duration` / `_last_cycle_energy` | Letzter Zyklus (Details als Attribute) |
 | `sensor.<name>_cycle_count` | Anzahl Zyklen |
 | `sensor.<name>_total_energy` | Gesamtenergie, für das Energie-Dashboard |
 | `sensor.<name>_end_delay` | Diagnose: gelernte Endverzögerung |
 
+## Dienste
+
+| Dienst | Zweck |
+| :--- | :--- |
+| `washrdata.label_cycle` | Zyklus einem Programm zuordnen (`cycle`: `current`, `last` oder ID; ohne `program`: Zuordnung entfernen) |
+| `washrdata.create_program` | Programm anlegen |
+| `washrdata.rename_program` | Programm umbenennen, samt Zyklen |
+| `washrdata.delete_program` | Programm löschen, Zyklen bleiben unbenannt |
+
+```yaml
+action: washrdata.label_cycle
+data:
+  device_id: 0123456789abcdef
+  program: Baumwolle 60
+  cycle: last
+```
+
 ## Automationen
 
-Events: `washrdata_cycle_started`, `washrdata_cycle_finished`, `washrdata_cycle_resumed`,
-`washrdata_anti_crease_started`, `washrdata_anti_crease_ended`.
+Events: `washrdata_cycle_started`, `washrdata_program_detected`, `washrdata_cycle_finished`,
+`washrdata_cycle_resumed`, `washrdata_anti_crease_started`, `washrdata_anti_crease_ended`.
+`washrdata_program_detected` enthält zusätzlich `program`, `confidence` und `remaining_min`.
 
 ```yaml
 triggers:
@@ -65,6 +112,38 @@ actions:
         Waschmaschine fertig nach {{ trigger.event.data.cycle.duration_min | round }} min,
         {{ trigger.event.data.cycle.energy_kwh }} kWh.
 ```
+
+## Fehler melden und Verbesserungen vorschlagen
+
+Am meisten hilft die **Diagnose-Datei**. Sie enthält Einstellungen, gelernte Werte, Programme und die
+Leistungskurven der letzten Zyklen, also alles, um ein Problem genau nachzustellen.
+
+1. **Einstellungen > Geräte & Dienste > WashRData**, das Gerät öffnen, im Menü ⋮
+   **Diagnose herunterladen**. Am besten direkt nach dem Problem, solange der Zyklus zu den
+   letzten 50 gehört.
+2. Kurz notieren:
+   - **Was** ist passiert, und **was** hättest du erwartet? (z. B. „fertig gemeldet, obwohl noch
+     geschleudert wurde“, „Baumwolle als Kurz erkannt“, „Restzeit 20 min zu kurz“)
+   - **Wann** ungefähr (Datum, Uhrzeit), damit sich der Zyklus finden lässt.
+   - **Welches Programm** tatsächlich lief.
+3. Schicken, auf einem dieser Wege:
+   - **Hier im Chat mit Claude:** Datei hochladen und die Notizen dazuschreiben.
+   - **Als GitHub-Issue** in diesem Repository: Notizen als Text, Datei per Drag & Drop anhängen
+     (lehnt GitHub `.json` ab, die Datei vorher zippen). In einer Claude-Sitzung reicht dann
+     „schau dir Issue #N an“.
+
+Für Fehler im Home-Assistant-Log zusätzlich Debug-Logging einschalten und den Log-Auszug mitschicken:
+
+```yaml
+logger:
+  logs:
+    custom_components.washrdata: debug
+```
+
+Die Diagnose enthält keine Passwörter, aber Zeitstempel und Verbrauch. Daran ist ablesbar, wann du
+wäschst. Bei einem öffentlichen Repository also abwägen.
+
+Ein Wunsch braucht keine Datei: beschreiben, was du in welcher Situation erreichen willst.
 
 ## Entwicklung
 

@@ -87,7 +87,107 @@
       },
       "end_delay": {
         "name": "End delay"
+      },
+      "program": {
+        "name": "Program"
+      },
+      "time_remaining": {
+        "name": "Time remaining"
+      },
+      "expected_end": {
+        "name": "Expected end"
+      },
+      "progress": {
+        "name": "Progress"
       }
+    },
+    "select": {
+      "program_select": {
+        "name": "Program",
+        "state": {
+          "none": "No program"
+        }
+      }
+    }
+  },
+  "services": {
+    "label_cycle": {
+      "name": "Label cycle",
+      "description": "Assigns a program to a cycle. Unknown programs are created. Labelled cycles are used to recognise the program in future runs.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The WashRData device."
+        },
+        "program": {
+          "name": "Program",
+          "description": "Program name. Leave empty to remove the label."
+        },
+        "cycle": {
+          "name": "Cycle",
+          "description": "\"current\", \"last\" or a cycle id from the diagnostics. Default: the running cycle, otherwise the last one."
+        }
+      }
+    },
+    "create_program": {
+      "name": "Create program",
+      "description": "Adds a program to the program select.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The WashRData device."
+        },
+        "program": {
+          "name": "Program",
+          "description": "Program name."
+        }
+      }
+    },
+    "rename_program": {
+      "name": "Rename program",
+      "description": "Renames a program, including its labelled cycles.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The WashRData device."
+        },
+        "program": {
+          "name": "Program",
+          "description": "Current name."
+        },
+        "new_name": {
+          "name": "New name",
+          "description": "New name."
+        }
+      }
+    },
+    "delete_program": {
+      "name": "Delete program",
+      "description": "Deletes a program. Its cycles are kept, unlabelled.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The WashRData device."
+        },
+        "program": {
+          "name": "Program",
+          "description": "Program name."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "unknown_device": {
+      "message": "{device_id} is not a loaded WashRData device."
+    },
+    "unknown_cycle": {
+      "message": "No cycle {cycle}."
+    },
+    "unknown_program": {
+      "message": "No program named {program}."
+    },
+    "program_exists": {
+      "message": "A program named {program} already exists."
     }
   }
 }

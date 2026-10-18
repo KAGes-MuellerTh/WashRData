@@ -1,6 +1,6 @@
 # WashRData: Konzept
 
-Stand: Version 0.1.0 (Grundgerüst), Oktober 2026.
+Stand: Version 0.2.0 (Programme und Erkennung), Oktober 2026.
 
 ## Ziel
 
@@ -109,6 +109,46 @@ unterbrochen. Lücken über 15 Minuten (etwa ein HA-Neustart) werden nicht hochg
 **Unterbrochen.** Ein beendeter Zyklus, der kürzer als die Mindestdauer ist (Waschmaschine 10 min,
 Trockner 15 min), wird als `interrupted` markiert und nicht zum Lernen benutzt.
 
+## Programme und Erkennung
+
+**Programme** sind Namen, die der Nutzer anlegt. Ein Zyklus wird einem Programm zugeordnet: von Hand
+über die Auswahl oder den Dienst `label_cycle`, oder automatisch, wenn die Erkennung am Ende sicher
+ist. Die **Referenzen** eines Programms sind seine letzten fünf benannten, nicht unterbrochenen
+Zyklen. Von Hand benannte gehen vor.
+
+**Kurven vergleichen.** Jede Kurve wird auf einen Mittelwert pro Minute gebracht und mit
+`log1p(W / 20)` gestaucht. Ein Heizstab mit 2000 W und eine Trommel mit 250 W unterscheiden sich so
+deutlich, 0 W und 3 W Standby dagegen kaum. Der laufende Zyklus wird per **Dynamic Time Warping mit
+offenem Ende** mit jeder Referenz verglichen. Das ganze bisherige Stück wird gegen den
+bestpassenden *Anfang* der Referenz gelegt. Daraus kommen zwei Dinge:
+
+- die **Distanz**: mittlere Abweichung pro Minute, ergibt das Programm,
+- die **Position** in der Referenz, ergibt Restzeit und Fortschritt. Die Restzeit ist der Median
+  über die passenden Referenzen des Programms, damit verdirbt eine falsch benannte Referenz nichts.
+
+Zeitverzerrung (etwa eine längere Heizphase im Winter) kostet einen kleinen Aufschlag (0,05 pro
+Schritt). Gewarpt wird nur, wo es die Kurven wirklich besser übereinanderlegt. Die Rechnung ist
+inkrementell: Jede neue Minute fügt pro Referenz eine Zeile hinzu. Das sind wenige Millisekunden pro
+Minute. Ein Neuaufbau, etwa nach einem Neustart mitten im Programm, dauert im ungünstigsten Fall
+(10 Programme × 5 Referenzen, 3 h) rund 0,7 s.
+
+**Sicherheit (confidence).** Sie setzt sich zusammen aus der Güte des besten Programms
+(`1 − Distanz / 0,8`) und dem Abstand zum Zweitbesten. Zwei Programme, die gleich beginnen, ergeben
+also eine niedrige Sicherheit, bis sie sich unterscheiden.
+
+| Schwelle | Wert | Wirkung |
+| :--- | :--- | :--- |
+| Anzeige | ≥ 25 % ab 5 min Laufzeit | Programm, Restzeit, Fortschritt und Ende-Uhrzeit werden gezeigt |
+| Ende zurückhalten | ≥ 50 % und noch ≥ 10 min Rest | Eine ruhige Phase beendet den Zyklus erst nach der maximalen Endverzögerung |
+| Selbst benennen | ≥ 60 % am Ende, Länge passt (Faktor ≤ 1,4) | Zyklus bekommt das Programm (`program_source: auto`) |
+
+Am Ende zählt der Vergleich bis zum Beginn der letzten Ruhephase, nicht die Ruheminuten danach.
+Eine Auswahl von Hand während des Laufs gewinnt immer: Restzeit und Fortschritt kommen dann aus den
+Referenzen des gewählten Programms, und die automatische Benennung wird nicht angewendet.
+
+**Speicher.** Die letzten 50 Zyklen bleiben erhalten, dazu je Programm die letzten 10 benannten,
+auch wenn sie älter sind.
+
 ## Daten und Persistenz
 
 Je Gerät speichert ein Home Assistant `Store` (`.storage/washrdata.<entry_id>`):
@@ -116,17 +156,27 @@ Je Gerät speichert ein Home Assistant `Store` (`.storage/washrdata.<entry_id>`)
 - den vollständigen Zustand der Engine, auch einen laufenden Zyklus. Ein Neustart oder Reload mitten
   im Programm setzt den Zyklus fort.
 - die gelernten Werte,
-- die letzten 50 Zyklen mit komprimiertem Leistungsverlauf. Er dient als Grundlage für die
-  Programmerkennung in 0.2.
+- die Programme und die Zyklen (siehe oben) mit komprimiertem Leistungsverlauf und Programmzuordnung.
+
+Speicherstände von 0.1 werden ohne Migration gelesen; Programme sind dort einfach leer.
+
+**Diagnose.** Der Diagnose-Download des Geräts enthält Konfiguration, Engine-Zustand, Programme,
+Referenzen, aktuelle Erkennung und alle gespeicherten Kurven. Er ist das Format für Fehlerberichte;
+ein gemeldeter Fehler wird zuerst als Test mit der Kurve aus der Datei nachgestellt.
 
 Gespeichert wird verzögert (30 s) und sofort am Zyklusende.
 
-## Entitäten und Events (0.1)
+## Entitäten, Dienste und Events
 
 | Entität | Inhalt |
 | :--- | :--- |
 | `sensor.<name>_state` | Zustand (siehe oben) |
 | `binary_sensor.<name>_running` | An während des ganzen Zyklus |
+| `sensor.<name>_program` | Erkanntes oder gewähltes Programm, Attribute `confidence`, `manual`, `candidates` |
+| `select.<name>_program` | Programm des laufenden, sonst des letzten Zyklus; Auswahl benennt ihn |
+| `sensor.<name>_time_remaining` | Restzeit (min) |
+| `sensor.<name>_expected_end` | Voraussichtliches Ende (Zeitstempel) |
+| `sensor.<name>_progress` | Fortschritt (%) |
 | `sensor.<name>_cycle_duration` | Laufzeit des aktuellen Zyklus (min) |
 | `sensor.<name>_cycle_energy` | Energie des aktuellen Zyklus (kWh) |
 | `sensor.<name>_last_cycle_duration` | Dauer des letzten Zyklus, mit Details als Attribute |
@@ -135,17 +185,22 @@ Gespeichert wird verzögert (30 s) und sofort am Zyklusende.
 | `sensor.<name>_total_energy` | Gesamtenergie (kWh), für das Energie-Dashboard |
 | `sensor.<name>_end_delay` | Diagnose: aktuell wirksame, gelernte Endverzögerung |
 
-Events: `washrdata_cycle_started`, `washrdata_cycle_finished`, `washrdata_cycle_resumed`,
-`washrdata_anti_crease_started`, `washrdata_anti_crease_ended`. Jedes Event enthält `entry_id`,
-`name`, `device_type` und eine Zusammenfassung des Zyklus (Start, Ende, Dauer, Energie,
-Spitzenleistung, `interrupted`, `resumed`, `anti_crease_bursts`).
+Dienste: `washrdata.label_cycle`, `create_program`, `rename_program`, `delete_program`.
+
+Events: `washrdata_cycle_started`, `washrdata_program_detected`, `washrdata_cycle_finished`,
+`washrdata_cycle_resumed`, `washrdata_anti_crease_started`, `washrdata_anti_crease_ended`. Jedes
+Event enthält `entry_id`, `name`, `device_type` und eine Zusammenfassung des Zyklus (Start, Ende,
+Dauer, Energie, Spitzenleistung, `interrupted`, `resumed`, `anti_crease_bursts`, `program`,
+`program_source`, `match_confidence`). `program_detected` enthält zusätzlich `program`, `confidence`
+und `remaining_min`.
 
 ## Roadmap
 
 | Version | Inhalt |
 | :--- | :--- |
-| **0.1 Grundgerüst** (dieser Stand) | Engine mit Zustandsautomat, lernender Endverzögerung, Fortsetzen und Knitterschutz; Integration mit Config- und Options-Flow, Sensoren, Events, Persistenz; Waschmaschine und Trockner |
-| **0.2 Programme und Restzeit** | Zyklen benennen (Service, Select-Entität) und Profile daraus bilden; Programmerkennung über Merkmale (Dauer, Energie, Heizphasen) und Kurvenvergleich (DTW) auf einheitlich abgetasteten Kurven, ohne numpy; Restzeit und Fortschritt mit Unsicherheitsangabe; programmabhängiges Ende: kennt WashRData das Programm, kann der Zyklus nicht deutlich vor dem erwarteten Ende enden; Import alter Zyklen aus dem Recorder, damit man nicht bei null anfängt |
+| **0.1 Grundgerüst** (erledigt) | Engine mit Zustandsautomat, lernender Endverzögerung, Fortsetzen und Knitterschutz; Integration mit Config- und Options-Flow, Sensoren, Events, Persistenz; Waschmaschine und Trockner |
+| **0.2 Programme und Restzeit** (dieser Stand) | Programme anlegen und Zyklen benennen (Auswahl, Dienste); Erkennung per Open-End-DTW ohne numpy, mit Sicherheit; Restzeit, Fortschritt, Ende-Uhrzeit; programmabhängiges Ende; Selbstbenennung sicher erkannter Läufe; Diagnose-Download |
+| **0.2.x** | Kalibrierung der Schwellen an echten Kurven aus Diagnose-Dateien (Testkorpus, Leave-one-out-Messung); bei Bedarf Import alter Zyklen aus dem Recorder |
 | **0.3 Zusatzsensoren und Benachrichtigungen** | Türkontakt (Ende bestätigen, Erinnerung „Wäsche noch drin“), Vibrationssensor (Pause oder Ende unterscheiden, Leistung allein reicht dafür nicht immer), Wasserzähler; Blueprints für Benachrichtigungen, Vorwarnung vor dem Ende |
 | **0.4 Kosten und Tarife** | Kosten pro Zyklus mit fester oder dynamischer Preis-Entität (Tibber, Nordpool, EPEX); Empfehlung für die günstigste Startzeit: Programmprofil mal Preiskurve; Startzeit nach PV-Prognose (Forecast.Solar, Solcast) |
 | **0.5 Wartung und Wasser** | Erinnerungen nach Zyklen, kWh oder Zeit (Flusensieb, Entkalken, Trommelreinigung); Verschleiß erkennen, wenn die Kurve eines Programms über Monate abweicht (z. B. längere Heizphase durch Kalk); Wasserverbrauch pro Zyklus: gemessen mit Wasserzähler oder aus dem Programmprofil geschätzt |
@@ -157,11 +212,16 @@ Spitzenleistung, `interrupted`, `resumed`, `anti_crease_bursts`).
   Lernen, Knitterschutz, Ausfall, Neustart, Persistenz, Steckdosen, die nur Änderungen melden.
 - Integrationstests mit echtem Home Assistant über `pytest-homeassistant-custom-component`:
   Config-Flow, Options-Flow, ein Zyklus von der Steckdose bis zu Entität, Event und Reload.
-- Ab 0.2: echte, aufgezeichnete Zyklen als Testkorpus und eine Messung der Erkennungsgenauigkeit
-  (Leave-one-out), damit Verbesserungen belegbar sind.
+- Erkennungstests auf drei synthetischen Programmen mit zufälliger Streuung in Dauer (±10 %) und
+  Leistung (±15 %): richtiges Programm, Restzeit, Selbstbenennung, Zurückhalten des Endes,
+  unbekanntes Programm, Vorrang der Hand-Auswahl.
+- Als Nächstes: echte Zyklen aus Diagnose-Dateien als Testkorpus unter `tests/fixtures/` und eine
+  Messung der Erkennungsgenauigkeit (Leave-one-out), damit Verbesserungen belegbar sind.
 - CI: Ruff, Tests, `hassfest`, HACS-Validierung.
 
 ## Offene Punkte
 
 - Lizenz des Projekts festlegen (z. B. MIT oder Apache-2.0).
-- Sammeln echter Leistungskurven der eigenen Geräte für den Testkorpus.
+- Sammeln echter Leistungskurven der eigenen Geräte für den Testkorpus (per Diagnose-Download).
+- Die Schwellen der Erkennung (25 / 50 / 60 %, Distanz 0,8) sind an synthetischen Kurven gewählt
+  und müssen an echten Kurven geprüft werden.

@@ -1,0 +1,56 @@
+label_cycle:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: washrdata
+    program:
+      example: "Baumwolle 60"
+      selector:
+        text:
+    cycle:
+      example: "last"
+      selector:
+        text:
+
+create_program:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: washrdata
+    program:
+      required: true
+      example: "Baumwolle 60"
+      selector:
+        text:
+
+rename_program:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: washrdata
+    program:
+      required: true
+      selector:
+        text:
+    new_name:
+      required: true
+      selector:
+        text:
+
+delete_program:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: washrdata
+    program:
+      required: true
+      selector:
+        text:

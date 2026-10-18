@@ -29,8 +29,12 @@ custom_components/washrdata/
     model.py         Zustände, Konfiguration, Presets je Gerätetyp, CycleRecord
     detector.py      Zustandsautomat (update/tick), Persistenz (to_dict/from_dict)
     learning.py      Aus eigenen Zyklen gelernte Schwellen
-  device.py          Adapter: Sensor-Events und Ticks -> Engine, Events, Speicher
-  sensor.py, binary_sensor.py, entity.py, config_flow.py, const.py
+    matching.py      Programmerkennung: Resampling, inkrementelles Open-End-DTW, Konfidenz
+    tracker.py       Detector + Programme + Zyklus-Historie + Matcher eines Geräts
+  device.py          Adapter: Sensor-Events und Ticks -> Tracker, Events, Speicher
+  services.py        Dienste (label_cycle, create/rename/delete_program)
+  diagnostics.py     Diagnose-Download mit allen Kurven
+  sensor.py, binary_sensor.py, select.py, entity.py, config_flow.py, const.py
   strings.json, translations/{en,de}.json
 tests/
   engine/            reine Engine-Tests auf simulierten Leistungskurven (sim.py)
@@ -45,6 +49,8 @@ tests/
 - Jeder neue UI-Text kommt in `strings.json`, `translations/en.json` und `translations/de.json`.
 - Kein Modul über ca. 600 Zeilen: lieber aufteilen. Keine Laufzeit-Abhängigkeiten (kein numpy),
   solange es ohne geht.
+- Fehlerberichte kommen meist als Diagnose-Datei (`tracker.cycles[].trace`). Ein gemeldeter
+  Erkennungsfehler wird zuerst als Test mit dieser Kurve nachgestellt, dann behoben.
 - Verhaltensänderungen an der Erkennung brauchen einen Test mit einer Leistungskurve, die den Fall
   zeigt. Der Adapter (`device.py`) wird über `tests/integration/` gegen ein echtes HA getestet,
   nicht mit `MagicMock`.

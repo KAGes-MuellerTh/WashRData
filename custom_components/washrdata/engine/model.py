@@ -31,6 +31,12 @@ class EventKind(StrEnum):
     RESUMED = "cycle_resumed"
     ANTI_CREASE_STARTED = "anti_crease_started"
     ANTI_CREASE_ENDED = "anti_crease_ended"
+    PROGRAM_DETECTED = "program_detected"
+
+
+class LabelSource(StrEnum):
+    MANUAL = "manual"
+    AUTO = "auto"
 
 
 ACTIVE_STATES = frozenset({State.RUNNING, State.PAUSED})
@@ -124,8 +130,15 @@ class CycleRecord:
     resumed: int = 0
     interrupted: bool = False
     anti_crease_bursts: int = 0
+    program: str | None = None
+    program_source: LabelSource | None = None
+    match_confidence: float | None = None
     # (seconds since start, watts), change-compressed.
     trace: list[tuple[float, float]] = field(default_factory=list)
+
+    @property
+    def id(self) -> str:
+        return str(int(self.start))
 
     def duration(self, now: float | None = None) -> float:
         end = self.end if self.end is not None else now
@@ -144,6 +157,8 @@ class CycleRecord:
     def from_dict(cls, data: dict[str, Any]) -> CycleRecord:
         data = dict(data)
         data["trace"] = [tuple(p) for p in data.get("trace", [])]
+        if data.get("program_source"):
+            data["program_source"] = LabelSource(data["program_source"])
         known = {f.name for f in fields(cls)}
         return cls(**{k: v for k, v in data.items() if k in known})
 

@@ -57,6 +57,9 @@ class CycleDetector:
         self._finished_ts: float | None = None
         self._last_burst_ts: float | None = None
         self._last_learned = False
+        # Set by the program matcher: the recognised program is not over yet,
+        # so quiet time up to max_end_delay_s does not end the cycle.
+        self.hold_end = False
 
     @property
     def end_delay(self) -> float:
@@ -172,7 +175,9 @@ class CycleDetector:
             if self._active:
                 self.cycle.pauses.append(ts - low_since)
                 self.state = State.RUNNING
-            elif ts - low_since >= self.end_delay:
+            elif ts - low_since >= self.end_delay and not (
+                self.hold_end and ts - low_since < self.config.max_end_delay_s
+            ):
                 self._finish(low_since, events)
         else:  # FINISHED, ANTI_CREASE
             if self._candidate is None and self._rising():

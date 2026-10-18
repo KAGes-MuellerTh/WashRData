@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
@@ -69,3 +70,26 @@ def segments(*parts: Iterable[tuple[float, float | None]]) -> list[tuple[float, 
 
 MIN = 60.0
 HOUR = 3600.0
+
+
+def vary(
+    program: Sequence[tuple[float, float]], seed: int, chunk_s: float = 30.0
+) -> list[tuple[float, float]]:
+    """A realistic run of `program`: long phases vary ±10 % in length,
+    loads vary ±15 % in power, in `chunk_s` steps. Deterministic per seed."""
+    rng = random.Random(seed)
+    out: list[tuple[float, float]] = []
+    for duration, watts in program:
+        if duration >= 10 * MIN:
+            duration *= rng.uniform(0.9, 1.1)
+        t = 0.0
+        while t < duration:
+            step = min(chunk_s, duration - t)
+            jitter = rng.uniform(0.85, 1.15) if watts > 20 else 1.0
+            out.append((step, watts * jitter))
+            t += step
+    return out
+
+
+def duration_of(curve: Curve) -> float:
+    return sum(d for d, _ in curve)

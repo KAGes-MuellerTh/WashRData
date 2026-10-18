@@ -23,14 +23,13 @@ from .const import (
     CONF_DEVICE_TYPE,
     CONF_POWER_SENSOR,
     DOMAIN,
-    MAX_STORED_CYCLES,
     SAVE_DELAY_S,
     STORAGE_VERSION,
     TICK_INTERVAL,
     build_config,
     signal_update,
 )
-from .engine import CycleDetector, CycleRecord, DeviceType, Event, EventKind
+from .engine import CycleDetector, CycleRecord, DeviceType, Event, EventKind, MatchResult, Tracker
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,6 +63,9 @@ def cycle_summary(cycle: CycleRecord) -> dict[str, Any]:
         "interrupted": cycle.interrupted,
         "resumed": cycle.resumed,
         "anti_crease_bursts": cycle.anti_crease_bursts,
+        "program": cycle.program,
+        "program_source": cycle.program_source,
+        "match_confidence": cycle.match_confidence,
     }
 
 
@@ -76,26 +78,32 @@ class WashRDataDevice:
         self.device_type = DeviceType(entry.data[CONF_DEVICE_TYPE])
         self.power_entity: str = entry.data[CONF_POWER_SENSOR]
         self.config = build_config(self.device_type, dict(entry.options))
-        self.detector = CycleDetector(self.config)
-        self.cycles: list[CycleRecord] = []
+        self.tracker = Tracker(self.config)
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}")
         self._unsubs: list[Any] = []
 
     @property
+    def detector(self) -> CycleDetector:
+        return self.tracker.detector
+
+    @property
     def last_cycle(self) -> CycleRecord | None:
-        return self.cycles[-1] if self.cycles else None
+        return self.tracker.last_cycle
+
+    @property
+    def match(self) -> MatchResult | None:
+        return self.tracker.match
 
     async def async_start(self) -> None:
         if data := await self._store.async_load():
-            self.detector = CycleDetector.from_dict(self.config, data.get("detector", {}))
-            self.cycles = [CycleRecord.from_dict(c) for c in data.get("cycles", [])]
+            self.tracker = Tracker.from_dict(self.config, data)
         self._unsubs = [
             async_track_state_change_event(self.hass, self.power_entity, self._on_state),
             async_track_state_report_event(self.hass, self.power_entity, self._on_state),
             async_track_time_interval(self.hass, self._on_tick, TICK_INTERVAL),
         ]
         state = self.hass.states.get(self.power_entity)
-        self._handle(self.detector.update(dt_util.utcnow().timestamp(), parse_power(state)))
+        self._handle(self.tracker.update(dt_util.utcnow().timestamp(), parse_power(state)))
 
     async def async_stop(self) -> None:
         for unsub in self._unsubs:
@@ -111,43 +119,42 @@ class WashRDataDevice:
         # A tick may have run between the state write and this callback; the
         # sample is still the newest reading, so it must not be dropped as stale.
         ts = max(state.last_reported_timestamp, self.detector.last_ts or 0.0)
-        self._handle(self.detector.update(ts, parse_power(state)))
+        self._handle(self.tracker.update(ts, parse_power(state)))
 
     @callback
     def _on_tick(self, now: datetime) -> None:
-        self._handle(self.detector.tick(now.timestamp()))
+        self._handle(self.tracker.tick(now.timestamp()))
 
     @callback
-    def _handle(self, events: list[Event]) -> None:
-        for event in events:
-            self._on_event(event)
-        if any(e.kind == EventKind.FINISHED for e in events):
+    def changed(self, save_now: bool = False) -> None:
+        """Persist and refresh entities after a change made outside a sample."""
+        if save_now:
             self.hass.async_create_task(self._store.async_save(self._data()))
         else:
             self._store.async_delay_save(self._data, SAVE_DELAY_S)
         async_dispatcher_send(self.hass, signal_update(self.entry.entry_id))
 
     @callback
-    def _on_event(self, event: Event) -> None:
+    def _handle(self, events: list[Event]) -> None:
+        for event in events:
+            self._fire(event)
+        self.changed(save_now=any(e.kind == EventKind.FINISHED for e in events))
+
+    @callback
+    def _fire(self, event: Event) -> None:
         cycle = event.cycle
-        if event.kind == EventKind.FINISHED and cycle is not None:
-            self.cycles = [*self.cycles, cycle][-MAX_STORED_CYCLES:]
-        elif event.kind == EventKind.RESUMED and cycle is not None:
-            # The resumed cycle was stored as finished; it is open again.
-            self.cycles = [c for c in self.cycles if c.start != cycle.start]
         _LOGGER.debug("%s: %s", self.entry.title, event.kind)
-        self.hass.bus.async_fire(
-            f"{DOMAIN}_{event.kind}",
-            {
-                "entry_id": self.entry.entry_id,
-                "name": self.entry.title,
-                "device_type": self.device_type.value,
-                "cycle": cycle_summary(cycle) if cycle else None,
-            },
-        )
+        data: dict[str, Any] = {
+            "entry_id": self.entry.entry_id,
+            "name": self.entry.title,
+            "device_type": self.device_type.value,
+            "cycle": cycle_summary(cycle) if cycle else None,
+        }
+        if event.kind == EventKind.PROGRAM_DETECTED and (match := self.tracker.match):
+            data["program"] = match.program
+            data["confidence"] = round(match.confidence, 2)
+            data["remaining_min"] = round(match.remaining_s / 60) if match.remaining_s is not None else None
+        self.hass.bus.async_fire(f"{DOMAIN}_{event.kind}", data)
 
     def _data(self) -> dict[str, Any]:
-        return {
-            "detector": self.detector.to_dict(),
-            "cycles": [c.to_dict() for c in self.cycles],
-        }
+        return self.tracker.to_dict()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -12,7 +13,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import EntityCategory, UnitOfEnergy, UnitOfTime
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfEnergy, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
@@ -34,9 +35,49 @@ def _kwh(wh: float | None) -> float | None:
     return None if wh is None else round(wh / 1000, 3)
 
 
+def _program(d: WashRDataDevice) -> str | None:
+    """Label of the running cycle, else what recognition says."""
+    cycle = d.detector.cycle
+    if cycle is None:
+        return None
+    if cycle.program:
+        return cycle.program
+    return d.match.program if d.match else None
+
+
+def _program_attrs(d: WashRDataDevice) -> dict[str, Any] | None:
+    match = d.match
+    if match is None:
+        return None
+    return {
+        "confidence": round(match.confidence * 100),
+        "manual": match.manual,
+        "candidates": [{"program": p, "score": s} for p, s in match.candidates],
+    }
+
+
+def _remaining_s(d: WashRDataDevice) -> float | None:
+    if d.match is None or not d.match.program:
+        return None
+    return d.match.remaining_s
+
+
+def _expected_end(d: WashRDataDevice) -> datetime | None:
+    remaining = _remaining_s(d)
+    if remaining is None:
+        return None
+    return (dt_util.utcnow() + timedelta(seconds=remaining)).replace(second=0, microsecond=0)
+
+
+def _progress(d: WashRDataDevice) -> float | None:
+    if _remaining_s(d) is None or d.match is None or d.match.progress is None:
+        return None
+    return round(d.match.progress * 100)
+
+
 @dataclass(frozen=True, kw_only=True)
 class WashRDataSensorDescription(SensorEntityDescription):
-    value_fn: Callable[[WashRDataDevice], StateType]
+    value_fn: Callable[[WashRDataDevice], StateType | datetime]
     attrs_fn: Callable[[WashRDataDevice], dict[str, Any] | None] = lambda _: None
 
 
@@ -47,6 +88,31 @@ SENSORS: tuple[WashRDataSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENUM,
         options=[s.value for s in State],
         value_fn=lambda d: d.detector.state.value,
+    ),
+    WashRDataSensorDescription(
+        key="program",
+        translation_key="program",
+        value_fn=_program,
+        attrs_fn=_program_attrs,
+    ),
+    WashRDataSensorDescription(
+        key="time_remaining",
+        translation_key="time_remaining",
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        value_fn=lambda d: None if (r := _remaining_s(d)) is None else round(r / 60),
+    ),
+    WashRDataSensorDescription(
+        key="expected_end",
+        translation_key="expected_end",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=_expected_end,
+    ),
+    WashRDataSensorDescription(
+        key="progress",
+        translation_key="progress",
+        native_unit_of_measurement=PERCENTAGE,
+        value_fn=_progress,
     ),
     WashRDataSensorDescription(
         key="cycle_duration",
@@ -117,7 +183,7 @@ class WashRDataSensor(WashRDataEntity, SensorEntity):
     entity_description: WashRDataSensorDescription
 
     @property
-    def native_value(self) -> StateType:
+    def native_value(self) -> StateType | datetime:
         return self.entity_description.value_fn(self.device)
 
     @property
