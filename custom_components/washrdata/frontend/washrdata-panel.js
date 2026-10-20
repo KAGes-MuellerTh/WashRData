@@ -2,8 +2,9 @@
 // programs are recognised. Plain web component, no build step. Texts come
 // from the integration's translations (selector "panel").
 
-// Same version query as this module, so an update loads the new styles too.
-const { STYLE } = await import(`./washrdata-panel-style.js${new URL(import.meta.url).search}`);
+// A static import: no top-level await, so the element is defined by the time
+// Home Assistant's script load event fires and it creates the panel.
+import { STYLE } from "./washrdata-panel-style.js";
 
 const TEXT_PREFIX = "component.washrdata.selector.panel.options.";
 const REFRESH_MS = 5000;
@@ -25,6 +26,15 @@ class WashRDataPanel extends HTMLElement {
     this._pending = null;
     this._last = 0;
     this._changed = new Set(); // entry ids with news since the last refresh
+    // Properties set before the element was defined sit on the instance and
+    // would hide the setters; hand them to the setters instead.
+    for (const prop of ["narrow", "panel", "hass"]) {
+      if (Object.prototype.hasOwnProperty.call(this, prop)) {
+        const value = this[prop];
+        delete this[prop];
+        this[prop] = value;
+      }
+    }
   }
 
   set hass(hass) {

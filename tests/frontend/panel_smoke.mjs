@@ -6,7 +6,7 @@ import { readFile, mkdir } from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+import { chromium, devices, webkit } from "playwright";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const files = {
@@ -42,10 +42,27 @@ const page = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewp
     },
     connection: { subscribeMessage: async (cb) => { window.emit = cb; return () => {}; } },
   };
-  await import("/washrdata-panel.js?v=test");
+  const load = () => new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = "/washrdata-panel.js?v=test";
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+  // Like Home Assistant: a module script tag, the element is created on its
+  // load event. "?early" creates it before the module is there, as on a slow
+  // phone, so the element is upgraded with hass already set.
   const el = document.createElement("washrdata-panel");
-  el.hass = hass;
-  document.body.appendChild(el);
+  if (location.search.includes("early")) {
+    el.hass = hass;
+    document.body.appendChild(el);
+    await load();
+  } else {
+    await load();
+    el.hass = hass;
+    document.body.appendChild(el);
+  }
 </script></body></html>`;
 
 const server = http.createServer(async (req, res) => {
@@ -60,17 +77,38 @@ const base = `http://localhost:${server.address().port}/`;
 const overview = JSON.parse(await readFile(path.join(root, files["/overview.json"])));
 const device = overview.devices[0];
 
-const browser = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
+// WebKit is the engine of every browser on the iPhone, including the Home Assistant app.
+const engines = { chromium, webkit };
+const names = (process.env.BROWSERS || "chromium").split(",");
 const shots = path.join(root, "tests/frontend/screenshots");
 await mkdir(shots, { recursive: true });
 let failed = false;
-try {
-  for (const [name, width] of [["desktop", 1200], ["phone", 390]]) {
-    const p = await browser.newPage({ viewport: { width, height: 900 } });
+let browser;
+for (const engine of names) {
+  browser = await engines[engine].launch();
+  try {
+    await check(engine);
+  } catch (err) {
+    failed = true;
+    console.error(`${engine}:`, err);
+  } finally {
+    await browser.close();
+  }
+}
+server.close();
+process.exit(failed ? 1 : 0);
+
+async function check(engine) {
+  const phone = engine === "webkit" ? devices["iPhone 13"] : { viewport: { width: 390, height: 900 } };
+  for (const [name, options, query] of [
+    ["desktop", { viewport: { width: 1200, height: 900 } }, ""],
+    ["phone", phone, "?early"],
+  ]) {
+    const p = await browser.newPage(options);
     const errors = [];
     p.on("pageerror", (e) => errors.push(e.message));
     p.on("dialog", (d) => d.accept(d.type() === "prompt" ? "Feinwäsche" : undefined));
-    await p.goto(base);
+    await p.goto(base + query);
     const panel = p.locator("washrdata-panel");
     await panel.locator(".cycle").first().waitFor();
 
@@ -93,7 +131,7 @@ try {
     await detail.waitFor();
     assert.ok((await detail.locator("path.ref").count()) >= 1, "references drawn");
     assert.match(await detail.innerText(), /Nachgespielt: richtiges Programm ab Minute \d+/);
-    await p.screenshot({ path: path.join(shots, `${name}.png`), fullPage: true });
+    await p.screenshot({ path: path.join(shots, `${engine}-${name}.png`), fullPage: true });
 
     // Live updates fetch only the running cycle while nothing else changed ...
     await p.evaluate(() => (window.calls = []));
@@ -135,12 +173,5 @@ try {
       auto: device.evaluation.recommended_auto,
     },
   ]);
-  console.log("panel smoke test passed");
-} catch (err) {
-  failed = true;
-  console.error(err);
-} finally {
-  await browser.close();
-  server.close();
+  console.log(`${engine}: panel smoke test passed`);
 }
-process.exit(failed ? 1 : 0);

@@ -87,5 +87,5 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/pytest                    # alle Tests
 .venv/bin/pytest tests/engine       # nur Engine, ohne Home Assistant
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
-npm install --no-save playwright@1.56.1 && node tests/frontend/panel_smoke.mjs   # nach pytest
+npm install --no-save playwright@1.56.1 && node tests/frontend/panel_smoke.mjs   # nach pytest; BROWSERS=chromium,webkit
 ```

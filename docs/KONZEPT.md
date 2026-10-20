@@ -1,6 +1,6 @@
 # WashRData: Konzept
 
-Stand: Version 0.2.5 (Programme und Erkennung), Oktober 2026.
+Stand: Version 0.2.6 (Programme und Erkennung), Oktober 2026.
 
 ## Ziel
 
@@ -247,7 +247,10 @@ Genauigkeit, Auswertung, Schwellen und alle Zyklen mit Kurve (Mittelwert pro Min
 `revision` geändert hat (gespeicherte Zyklen, Programme, Auswertung). `washrdata/label`,
 `rename_program`, `delete_program` und `set_thresholds` ändern. Ein Browser-Test
 (`tests/frontend/panel_smoke.mjs`) lädt das Panel in Chromium mit Daten, die ein Integrationstest aus
-einem echten Home Assistant schreibt, und prüft Anzeige und Bedienung. Das Panel zeigt:
+einem echten Home Assistant schreibt, und prüft Anzeige und Bedienung, in Chromium und in WebKit
+(iPhone). Er lädt das Modul wie Home Assistant per Script-Tag und legt das Element erst beim
+Load-Event an oder schon vorher (Upgrade mit bereits gesetztem `hass`). Deshalb kein top-level
+`await` im Panel-Modul: Das Load-Event kommt, bevor ein solches `await` fertig ist. Das Panel zeigt:
 den laufenden Zyklus mit Live-Sicherheit und Kurve über den Referenzen, die Trefferquote gesamt und
 je Programm, alle Zyklen mit Kurve, Programm (direkt änderbar), Erkennung und Treffer/Fehler, beim
 Aufklappen die große Kurve im Vergleich mit den Referenzen eines wählbaren Programms, und die
@@ -282,6 +285,7 @@ und `remaining_min`.
 | **0.2.3** | Optionen-Dialog „Zyklen bearbeiten“: gespeicherte Zyklen mit Start, Dauer, Energie, Programm, Herkunft und Kurve als Textgrafik; Programm prüfen, korrigieren oder neu anlegen |
 | **0.2.4** | WashRData-App in der Seitenleiste: laufender Zyklus, Zyklen mit Kurve und Kurvenvergleich mit Referenzen, Programm direkt korrigieren, Programme umbenennen und löschen; Erkennung wird pro Lauf festgehalten; Sensoren Erkennungssicherheit (live) und Trefferquote, gesamt und je Programm |
 | **0.2.5** | Auswertung der gespeicherten Läufe (leave-one-out): Schwellen-Tabelle mit Empfehlung zum Übernehmen, Genauigkeit der Restzeit, ältere Läufe nachträglich bewertet; Schwellen für Anzeige und Selbstbenennung einstellbar; Kosten pro Lauf aus einer Strompreis-Entität; Statistik je Programm; Blueprints für „fertig“ und Vorwarnung; Panel lädt nur noch den laufenden Zyklus nach; Browser-Test des Panels in der CI |
+| **0.2.6** | Fehlerbehebung: Die App blieb seit 0.2.5 leer (Styles per top-level await geladen, das Element war beim Anlegen durch Home Assistant noch nicht definiert). Browser-Test lädt das Panel jetzt wie Home Assistant, auch mit früh angelegtem Element, in Chromium und WebKit (iPhone) |
 | **0.2.x** | Kalibrierung der Schwellen an echten Kurven aus Diagnose-Dateien (Testkorpus, Leave-one-out-Messung); bei Bedarf Import alter Zyklen aus dem Recorder |
 | **0.3 Zusatzsensoren und Benachrichtigungen** | Türkontakt (Ende bestätigen, Erinnerung „Wäsche noch drin“), Vibrationssensor (Pause oder Ende unterscheiden, Leistung allein reicht dafür nicht immer), Wasserzähler; Blueprints für Benachrichtigungen, Vorwarnung vor dem Ende |
 | **0.4 Kosten und Tarife** | Kosten pro Zyklus mit fester oder dynamischer Preis-Entität (Tibber, Nordpool, EPEX); Empfehlung für die günstigste Startzeit: Programmprofil mal Preiskurve; Startzeit nach PV-Prognose (Forecast.Solar, Solcast) |

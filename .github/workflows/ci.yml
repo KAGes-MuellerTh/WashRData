@@ -18,8 +18,11 @@ jobs:
       - run: pytest
       # The panel in a real browser, with the data pytest wrote from a real Home Assistant.
       - run: npm install --no-save playwright@1.56.1
-      - run: npx playwright install --with-deps chromium
+      # WebKit is the engine of every iPhone browser, including the Home Assistant app.
+      - run: npx playwright install --with-deps chromium webkit
       - run: node tests/frontend/panel_smoke.mjs
+        env:
+          BROWSERS: chromium,webkit
 
   hassfest:
     runs-on: ubuntu-latest
