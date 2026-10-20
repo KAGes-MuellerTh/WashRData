@@ -32,4 +32,4 @@ jobs:
         with:
           category: integration
           # Only needed to be listed in the HACS default store; custom repositories work without.
-          ignore: brands description topics license
+          ignore: brands description topics
