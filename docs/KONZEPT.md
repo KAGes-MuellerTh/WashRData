@@ -1,6 +1,6 @@
 # WashRData: Konzept
 
-Stand: Version 0.2.2 (Programme und Erkennung), Oktober 2026.
+Stand: Version 0.2.3 (Programme und Erkennung), Oktober 2026.
 
 ## Ziel
 
@@ -217,6 +217,7 @@ und `remaining_min`.
 | **0.2 Programme und Restzeit** (dieser Stand) | Programme anlegen und Zyklen benennen (Auswahl, Dienste); Erkennung per Open-End-DTW ohne numpy, mit Sicherheit; Restzeit, Fortschritt, Ende-Uhrzeit; programmabhängiges Ende; Selbstbenennung sicher erkannter Läufe; Diagnose-Download |
 | **0.2.1** | Programm-Erkennung robuster bei nur einer Referenz (begrenzte Dehnung, „unbekannt“ als Gegenkandidat), getestet an einer echten Kurve; Textfeld „Neues Programm“ am Gerät |
 | **0.2.2** | Repository zu RookieIVG umgezogen: Links und Codeowner im Manifest angepasst |
+| **0.2.3** | Optionen-Dialog „Zyklen bearbeiten“: gespeicherte Zyklen mit Start, Dauer, Energie, Programm, Herkunft und Kurve als Textgrafik; Programm prüfen, korrigieren oder neu anlegen |
 | **0.2.x** | Kalibrierung der Schwellen an echten Kurven aus Diagnose-Dateien (Testkorpus, Leave-one-out-Messung); bei Bedarf Import alter Zyklen aus dem Recorder |
 | **0.3 Zusatzsensoren und Benachrichtigungen** | Türkontakt (Ende bestätigen, Erinnerung „Wäsche noch drin“), Vibrationssensor (Pause oder Ende unterscheiden, Leistung allein reicht dafür nicht immer), Wasserzähler; Blueprints für Benachrichtigungen, Vorwarnung vor dem Ende |
 | **0.4 Kosten und Tarife** | Kosten pro Zyklus mit fester oder dynamischer Preis-Entität (Tibber, Nordpool, EPEX); Empfehlung für die günstigste Startzeit: Programmprofil mal Preiskurve; Startzeit nach PV-Prognose (Forecast.Solar, Solcast) |
