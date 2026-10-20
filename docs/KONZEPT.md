@@ -1,6 +1,6 @@
 # WashRData: Konzept
 
-Stand: Version 0.2.1 (Programme und Erkennung), Oktober 2026.
+Stand: Version 0.2.2 (Programme und Erkennung), Oktober 2026.
 
 ## Ziel
 
@@ -112,9 +112,14 @@ Trockner 15 min), wird als `interrupted` markiert und nicht zum Lernen benutzt.
 ## Programme und Erkennung
 
 **Programme** sind Namen, die der Nutzer anlegt. Ein Zyklus wird einem Programm zugeordnet: von Hand
-über die Auswahl oder den Dienst `label_cycle`, oder automatisch, wenn die Erkennung am Ende sicher
-ist. Die **Referenzen** eines Programms sind seine letzten fünf benannten, nicht unterbrochenen
-Zyklen. Von Hand benannte gehen vor.
+über die Auswahl, im Optionen-Dialog unter „Zyklen bearbeiten“ oder mit dem Dienst `label_cycle`, oder
+automatisch, wenn die Erkennung am Ende sicher ist. „Zyklen bearbeiten“ listet die gespeicherten
+Zyklen, neueste zuerst, mit Start, Dauer, Energie, Programm, Herkunft (von Hand oder erkannt, mit
+Sicherheit) und der Leistungskurve als Textgrafik aus Blockzeichen (je Zeitabschnitt die höchste
+Leistung, auf die Spitze skaliert, mit Wurzelskala, damit der Motor neben der Heizung sichtbar bleibt).
+Wer ein Programm dort setzt oder ein erkanntes bestätigt, benennt den Zyklus von Hand. Ein neuer Name
+legt das Programm an. Die **Referenzen** eines Programms sind seine letzten fünf benannten, nicht
+unterbrochenen Zyklen. Von Hand benannte gehen vor.
 
 **Kurven vergleichen.** Jede Kurve wird auf einen Mittelwert pro Minute gebracht und mit
 `log1p(W / 20)` gestaucht. Ein Heizstab mit 2000 W und eine Trommel mit 250 W unterscheiden sich so
@@ -211,6 +216,7 @@ und `remaining_min`.
 | **0.1 Grundgerüst** (erledigt) | Engine mit Zustandsautomat, lernender Endverzögerung, Fortsetzen und Knitterschutz; Integration mit Config- und Options-Flow, Sensoren, Events, Persistenz; Waschmaschine und Trockner |
 | **0.2 Programme und Restzeit** (dieser Stand) | Programme anlegen und Zyklen benennen (Auswahl, Dienste); Erkennung per Open-End-DTW ohne numpy, mit Sicherheit; Restzeit, Fortschritt, Ende-Uhrzeit; programmabhängiges Ende; Selbstbenennung sicher erkannter Läufe; Diagnose-Download |
 | **0.2.1** | Programm-Erkennung robuster bei nur einer Referenz (begrenzte Dehnung, „unbekannt“ als Gegenkandidat), getestet an einer echten Kurve; Textfeld „Neues Programm“ am Gerät |
+| **0.2.2** | Repository zu RookieIVG umgezogen: Links und Codeowner im Manifest angepasst |
 | **0.2.x** | Kalibrierung der Schwellen an echten Kurven aus Diagnose-Dateien (Testkorpus, Leave-one-out-Messung); bei Bedarf Import alter Zyklen aus dem Recorder |
 | **0.3 Zusatzsensoren und Benachrichtigungen** | Türkontakt (Ende bestätigen, Erinnerung „Wäsche noch drin“), Vibrationssensor (Pause oder Ende unterscheiden, Leistung allein reicht dafür nicht immer), Wasserzähler; Blueprints für Benachrichtigungen, Vorwarnung vor dem Ende |
 | **0.4 Kosten und Tarife** | Kosten pro Zyklus mit fester oder dynamischer Preis-Entität (Tibber, Nordpool, EPEX); Empfehlung für die günstigste Startzeit: Programmprofil mal Preiskurve; Startzeit nach PV-Prognose (Forecast.Solar, Solcast) |

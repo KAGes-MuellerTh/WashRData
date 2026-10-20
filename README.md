@@ -31,8 +31,9 @@ WashRData installieren, Home Assistant neu starten.
 **Manuell:** `custom_components/washrdata` nach `<config>/custom_components/` kopieren und neu starten.
 
 Danach **Einstellungen > Geräte & Dienste > Integration hinzufügen > WashRData**: Name, Gerätetyp und
-Leistungssensor wählen. Schwellen und Endverzögerung lassen sich in den Optionen anpassen, die
-Standardwerte passen für die meisten Geräte.
+Leistungssensor wählen. Schwellen und Endverzögerung lassen sich unter **Konfigurieren >
+Erkennungseinstellungen** anpassen, die Standardwerte
+passen für die meisten Geräte.
 
 ## Programme anlernen
 
@@ -48,6 +49,12 @@ WashRData bringt keine Programme mit; jede Maschine ist anders. So lernt es dein
 Nach **zwei benannten Läufen** pro Programm erkennt WashRData es meist schon nach wenigen Minuten.
 Programme, die sich nur in Temperatur oder Schleuderdrehzahl unterscheiden, sehen ähnlich aus. Hier
 helfen mehr Läufe, oder du fasst sie zu einem Programm zusammen.
+
+**Zyklen prüfen und korrigieren:** **Einstellungen > Geräte & Dienste > WashRData > Konfigurieren >
+Zyklen bearbeiten** zeigt alle gespeicherten Läufe, neueste zuerst: Start, Dauer, Energie, Programm
+(von Hand oder erkannt, mit Sicherheit) und die Leistungskurve als kleine Textgrafik. Einen Lauf
+wählen, Programm setzen oder einen neuen Namen eintippen, speichern. Danach gleich den nächsten
+Lauf bearbeiten oder fertig.
 
 - Ist die Erkennung sicher genug (Attribut `confidence` am Programm-Sensor), zeigen Programm,
   Restzeit, Fortschritt und Ende-Uhrzeit Werte. Die Auswahl zeigt das erkannte Programm.

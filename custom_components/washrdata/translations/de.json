@@ -21,6 +21,14 @@
   "options": {
     "step": {
       "init": {
+        "title": "WashRData",
+        "description": "Was möchtest du ändern?",
+        "menu_options": {
+          "settings": "Erkennungseinstellungen",
+          "cycles": "Zyklen bearbeiten"
+        }
+      },
+      "settings": {
         "title": "Erkennungseinstellungen",
         "description": "Die Standardwerte kommen vom Gerätetyp. Die Endverzögerung ist ein Mindestwert: WashRData erhöht sie, wenn deine Programme längere Ruhephasen haben.",
         "data": {
@@ -35,10 +43,38 @@
           "end_delay_min": "Ruhezeit, nach der ein Zyklus als beendet gilt.",
           "anti_crease": "Kurze Trommelbewegungen nach dem Ende sind Knitterschutz, kein neuer Zyklus."
         }
+      },
+      "cycles": {
+        "title": "Zyklen bearbeiten",
+        "description": "Die letzten {count} Zyklen, neueste zuerst: Start, Dauer, Energie, Programm und Leistungskurve. Wähle einen, um sein Programm zu prüfen oder zu korrigieren.",
+        "data": {
+          "cycle": "Zyklus"
+        }
+      },
+      "cycle": {
+        "title": "Programm des Zyklus",
+        "description": "{cycle}\n\nSpitze {peak}\n\n`{curve}`\n\nKorrigierte Zyklen dienen künftig zur Erkennung des Programms. Gib einen neuen Namen ein, um ein Programm anzulegen.",
+        "data": {
+          "program": "Programm"
+        },
+        "data_description": {
+          "program": "Wer ein erkanntes Programm bestätigt, setzt es damit von Hand."
+        }
+      },
+      "saved": {
+        "title": "Gespeichert",
+        "description": "Programm jetzt: {program}",
+        "menu_options": {
+          "cycles": "Weiteren Zyklus bearbeiten",
+          "done": "Fertig"
+        }
       }
     },
     "error": {
       "stop_above_start": "Die Stoppleistung darf nicht über der Startleistung liegen."
+    },
+    "abort": {
+      "no_cycles": "Noch keine abgeschlossenen Zyklen."
     }
   },
   "selector": {
@@ -46,6 +82,14 @@
       "options": {
         "washer": "Waschmaschine",
         "dryer": "Trockner"
+      }
+    },
+    "cycle_view": {
+      "options": {
+        "none": "Kein Programm",
+        "manual": "von Hand",
+        "auto": "erkannt",
+        "interrupted": "abgebrochen"
       }
     }
   },

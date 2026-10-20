@@ -21,6 +21,14 @@
   "options": {
     "step": {
       "init": {
+        "title": "WashRData",
+        "description": "What do you want to change?",
+        "menu_options": {
+          "settings": "Detection settings",
+          "cycles": "Edit cycles"
+        }
+      },
+      "settings": {
         "title": "Detection settings",
         "description": "Defaults come from the device type. The end delay is a minimum: WashRData raises it when your programs have longer quiet spells.",
         "data": {
@@ -35,10 +43,38 @@
           "end_delay_min": "Quiet time after which a cycle counts as finished.",
           "anti_crease": "Short drum turns after the end are anti-crease, not a new cycle."
         }
+      },
+      "cycles": {
+        "title": "Edit cycles",
+        "description": "The last {count} cycles, newest first: start, duration, energy, program and power curve. Choose one to check or correct its program.",
+        "data": {
+          "cycle": "Cycle"
+        }
+      },
+      "cycle": {
+        "title": "Program of the cycle",
+        "description": "{cycle}\n\nPeak {peak}\n\n`{curve}`\n\nCorrected cycles are used to recognise the program in future runs. Type a new name to create a program.",
+        "data": {
+          "program": "Program"
+        },
+        "data_description": {
+          "program": "Confirming a recognised program counts as set by hand."
+        }
+      },
+      "saved": {
+        "title": "Saved",
+        "description": "Program now: {program}",
+        "menu_options": {
+          "cycles": "Edit another cycle",
+          "done": "Done"
+        }
       }
     },
     "error": {
       "stop_above_start": "Stop power must not be above start power."
+    },
+    "abort": {
+      "no_cycles": "No finished cycles yet."
     }
   },
   "selector": {
@@ -46,6 +82,14 @@
       "options": {
         "washer": "Washing machine",
         "dryer": "Dryer"
+      }
+    },
+    "cycle_view": {
+      "options": {
+        "none": "No program",
+        "manual": "set by hand",
+        "auto": "recognised",
+        "interrupted": "interrupted"
       }
     }
   },

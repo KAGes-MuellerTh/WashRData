@@ -1,13 +1,13 @@
 {
   "domain": "washrdata",
   "name": "WashRData",
-  "codeowners": ["@KAGes-MuellerTh"],
+  "codeowners": ["@RookieIVG"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/KAGes-MuellerTh/WashRData",
+  "documentation": "https://github.com/RookieIVG/WashRData",
   "integration_type": "device",
   "iot_class": "calculated",
-  "issue_tracker": "https://github.com/KAGes-MuellerTh/WashRData/issues",
+  "issue_tracker": "https://github.com/RookieIVG/WashRData/issues",
   "requirements": [],
-  "version": "0.2.1"
+  "version": "0.2.2"
 }
