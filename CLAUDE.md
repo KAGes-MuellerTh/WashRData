@@ -36,7 +36,9 @@ custom_components/washrdata/
   diagnostics.py     Diagnose-Download mit allen Kurven
   sensor.py, binary_sensor.py, select.py, text.py, entity.py, config_flow.py, const.py
   strings.json, translations/{en,de}.json
+  brand/             icon.png (256 px), icon@2x.png (512 px), gerendert aus tools/icon.svg
 tools/
+  icon.svg           Quelle des Integrations-Icons
   viewer.html        Kurven-Viewer für Diagnose-Dateien (eigenständige Seite, auch als Artifact veröffentlicht)
 tests/
   engine/            reine Engine-Tests auf simulierten Leistungskurven (sim.py) und echten (test_real_curves.py)

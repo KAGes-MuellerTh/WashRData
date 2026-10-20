@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <clipPath id="glass"><circle cx="256" cy="304" r="138"/></clipPath>
+  </defs>
+  <!-- machine body -->
+  <rect x="0" y="0" width="512" height="512" rx="96" fill="#0b7480"/>
+  <!-- control panel -->
+  <rect x="0" y="0" width="512" height="112" rx="96" fill="#085f69"/>
+  <rect x="0" y="64" width="512" height="48" fill="#085f69"/>
+  <rect x="64" y="46" width="132" height="22" rx="11" fill="#9fd8dd"/>
+  <circle cx="420" cy="57" r="27" fill="none" stroke="#e8f7f8" stroke-width="12"/>
+  <!-- door ring and glass -->
+  <circle cx="256" cy="304" r="174" fill="#d4eef0"/>
+  <circle cx="256" cy="304" r="138" fill="#ffffff"/>
+  <!-- power curve: fill, heat, wash, spin -->
+  <g clip-path="url(#glass)">
+    <path d="M100 384 H160 V246 H244 V350 H300 V296 H344 V384 H420"
+          fill="none" stroke="#0b7480" stroke-width="24" stroke-linejoin="round" stroke-linecap="round"/>
+  </g>
+</svg>
