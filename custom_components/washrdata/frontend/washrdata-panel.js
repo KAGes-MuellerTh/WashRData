@@ -2,8 +2,10 @@
 // programs are recognised. Plain web component, no build step. Texts come
 // from the integration's translations (selector "panel").
 
+// Same version query as this module, so an update loads the new styles too.
+const { STYLE } = await import(`./washrdata-panel-style.js${new URL(import.meta.url).search}`);
+
 const TEXT_PREFIX = "component.washrdata.selector.panel.options.";
-const AUTO_LABEL_CONFIDENCE = 0.6;
 const REFRESH_MS = 5000;
 const NEW_PROGRAM = "__new__";
 
@@ -22,6 +24,7 @@ class WashRDataPanel extends HTMLElement {
     this._loaded = false;
     this._pending = null;
     this._last = 0;
+    this._changed = new Set(); // entry ids with news since the last refresh
   }
 
   set hass(hass) {
@@ -64,17 +67,42 @@ class WashRDataPanel extends HTMLElement {
   }
 
   _subscribe() {
-    this._unsub = this._hass.connection.subscribeMessage(() => this._scheduleLoad(), { type: "washrdata/subscribe" });
+    this._unsub = this._hass.connection.subscribeMessage(
+      (event) => {
+        this._changed.add(event.entry_id);
+        this._scheduleRefresh();
+      },
+      { type: "washrdata/subscribe" }
+    );
   }
 
   // Power reports arrive every few seconds while a cycle runs; refresh at most every REFRESH_MS.
-  _scheduleLoad() {
+  _scheduleRefresh() {
     if (this._pending) return;
     const wait = Math.max(0, this._last + REFRESH_MS - Date.now());
     this._pending = setTimeout(() => {
       this._pending = null;
-      this._load();
+      this._refresh();
     }, wait);
+  }
+
+  // Only the running cycle is fetched; the full overview with all curves only
+  // when stored cycles, programs or the evaluation changed (new revision).
+  async _refresh() {
+    this._last = Date.now();
+    const ids = [...this._changed];
+    this._changed.clear();
+    try {
+      for (const id of ids) {
+        const device = this._devices.find((d) => d.entry_id === id);
+        const live = await this._hass.callWS({ type: "washrdata/live", entry_id: id });
+        if (!device || live.revision !== device.revision) return this._load();
+        Object.assign(device, live);
+      }
+    } catch (err) {
+      return this._load();
+    }
+    this._render();
   }
 
   async _load() {
@@ -122,6 +150,22 @@ class WashRDataPanel extends HTMLElement {
 
   _percent(value) {
     return value == null ? "–" : `${Math.round(value * 100)} %`;
+  }
+
+  _money(value, currency) {
+    if (value == null) return "–";
+    try {
+      return new Intl.NumberFormat(this._hass.language, { style: "currency", currency }).format(value);
+    } catch (err) {
+      return `${this._num(value, 2)} ${currency}`;
+    }
+  }
+
+  // Signed minutes, e.g. "+3 min" when the prediction was too long.
+  _offset(seconds) {
+    if (seconds == null) return "–";
+    const m = Math.round(seconds / 60);
+    return `${m > 0 ? "+" : m < 0 ? "−" : "±"}${Math.abs(m)} min`;
   }
 
   // -- charts -----------------------------------------------------------
@@ -216,6 +260,8 @@ class WashRDataPanel extends HTMLElement {
         ${this._now(device)}
         ${this._accuracy(device)}
       </div>
+      ${this._stats(device)}
+      ${this._evaluation(device)}
       ${this._cycles(device)}
       ${this._programs(device)}`;
   }
@@ -234,6 +280,7 @@ class WashRDataPanel extends HTMLElement {
         [this.t("remaining"), match?.remaining_s != null ? this._duration(match.remaining_s) : "–"],
         [this.t("running_for"), `${this._duration(cycle.duration_s)} · ${this._num(cycle.energy_kwh, 2)} kWh`],
       ];
+      if (cycle.cost != null) rows.push([this.t("cost_so_far"), this._money(cycle.cost, device.currency)]);
       const bar = match ? Math.round(match.recognition_confidence * 100) : 0;
       const refs = this._refs(device, program || match?.recognised, cycle.id);
       body = `<div class="state">${esc(this.t(`state_${device.state}`))}</div>
@@ -263,18 +310,96 @@ class WashRDataPanel extends HTMLElement {
     </section>`;
   }
 
+  // Per program: how long, how much energy and money, how often.
+  _stats(device) {
+    const done = device.cycles.filter((c) => c.program && !c.interrupted);
+    if (!done.length) return "";
+    const starts = device.cycles.map((c) => c.start);
+    const weeks = Math.max(1, (Math.max(...starts) - Math.min(...starts)) / 604800);
+    const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+    const withCost = done.some((c) => c.cost != null);
+    const rows = device.programs
+      .map((p) => {
+        const cs = done.filter((c) => c.program === p);
+        if (!cs.length) return "";
+        const durations = cs.map((c) => c.duration_s);
+        const costs = cs.map((c) => c.cost).filter((v) => v != null);
+        const span = cs.length > 1 ? `<span class="muted small"> (${this._duration(Math.min(...durations))}–${this._duration(Math.max(...durations))})</span>` : "";
+        return `<tr><td>${esc(p)}</td><td>${cs.length}</td><td>${this._duration(avg(durations))}${span}</td>
+          <td>${this._num(avg(cs.map((c) => c.energy_kwh)), 2)} kWh</td>
+          ${withCost ? `<td>${costs.length ? this._money(avg(costs), device.currency) : "–"}</td>` : ""}
+          <td>${this._num(cs.length / weeks, 1)}</td></tr>`;
+      })
+      .join("");
+    return `<section class="card"><h2>${esc(this.t("statistics"))}</h2>
+      <div class="scroll"><table><thead><tr><th>${esc(this.t("program"))}</th><th>${esc(this.t("runs"))}</th><th>${esc(this.t("avg_duration"))}</th>
+        <th>${esc(this.t("avg_energy"))}</th>${withCost ? `<th>${esc(this.t("avg_cost"))}</th>` : ""}<th>${esc(this.t("per_week"))}</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <p class="muted small">${esc(this.t("statistics_help"))}</p>
+    </section>`;
+  }
+
+  // Leave-one-out replay of the stored cycles: thresholds and remaining time.
+  _evaluation(device) {
+    const ev = device.evaluation;
+    const th = device.thresholds;
+    let body;
+    if (!ev) {
+      body = `<div class="empty">${esc(this.t("evaluation_pending"))}</div>`;
+    } else if (!ev.cycles) {
+      body = `<div class="empty">${esc(this.t("evaluation_empty"))}</div>`;
+    } else {
+      const near = (a, b) => b != null && Math.abs(a - b) < 0.001;
+      const rows = ev.thresholds
+        .map((r) => {
+          const marks = [near(r.threshold, th.show) ? this.t("now_show") : "", near(r.threshold, th.auto) ? this.t("now_auto") : ""]
+            .filter(Boolean)
+            .join(", ");
+          const best = near(r.threshold, ev.recommended_show) || near(r.threshold, ev.recommended_auto);
+          return `<tr class="${best ? "best" : ""}"><td>${this._percent(r.threshold)}${marks ? ` <span class="badge">${esc(marks)}</span>` : ""}</td>
+            <td>${r.wrong_shown}</td><td>${r.never_shown}</td><td>${r.first_shown_min == null ? "–" : `${Math.round(r.first_shown_min)} min`}</td>
+            <td>${r.auto_correct}</td><td>${r.auto_wrong}</td><td>${r.auto_missed}</td></tr>`;
+        })
+        .join("");
+      const remaining = ev.remaining
+        .map(
+          (r) =>
+            `<tr><td>${this._percent(r.progress)}</td><td>${r.cycles}</td><td>${r.mean_abs_error_s == null ? "–" : `${Math.round(r.mean_abs_error_s / 60)} min`}</td><td>${this._offset(r.bias_s)}</td></tr>`
+        )
+        .join("");
+      let advice = `<p class="muted">${esc(this.t("recommend_need", { count: 5 }))}</p>`;
+      if (ev.recommended_show != null && ev.recommended_auto != null) {
+        const same = near(ev.recommended_show, th.show) && near(ev.recommended_auto, th.auto);
+        advice = `<p>${esc(this.t("recommend", { show: this._percent(ev.recommended_show), auto: this._percent(ev.recommended_auto) }))}
+          ${same ? `<span class="muted"> · ${esc(this.t("recommend_applied"))}</span>` : `<button class="text" data-thresholds="${ev.recommended_show},${ev.recommended_auto}">${esc(this.t("apply"))}</button>`}</p>`;
+      }
+      body = `<p class="muted">${esc(this.t("evaluation_intro", { count: ev.cycles }))}</p>
+        ${advice}
+        <h3>${esc(this.t("thresholds"))}</h3>
+        <div class="scroll"><table><thead><tr><th>${esc(this.t("threshold"))}</th><th>${esc(this.t("wrong_shown"))}</th><th>${esc(this.t("never_shown"))}</th>
+          <th>${esc(this.t("shown_after"))}</th><th>${esc(this.t("auto_correct"))}</th><th>${esc(this.t("auto_wrong"))}</th><th>${esc(this.t("auto_missed"))}</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>
+        <h3>${esc(this.t("remaining_accuracy"))}</h3>
+        <table><thead><tr><th>${esc(this.t("at_progress"))}</th><th>${esc(this.t("runs"))}</th><th>${esc(this.t("mean_error"))}</th><th>${esc(this.t("bias"))}</th></tr></thead>
+          <tbody>${remaining}</tbody></table>
+        <p class="muted small">${esc(this.t("evaluation_help"))}</p>`;
+    }
+    return `<section class="card"><h2>${esc(this.t("evaluation"))}</h2>${body}</section>`;
+  }
+
   _refs(device, program, exclude) {
     if (!program) return [];
     return device.cycles.filter((c) => c.reference && c.program === program && c.id !== exclude).map((c) => ({ curve: c.curve }));
   }
 
-  _verdict(c) {
+  _verdict(device, c) {
     if (c.confidence == null) return `<span class="muted">${esc(this.t("not_rated"))}</span>`;
-    const sure = c.recognised && c.confidence >= AUTO_LABEL_CONFIDENCE;
+    const sure = c.recognised && c.confidence >= device.thresholds.auto;
     const said = c.recognised ? `${esc(c.recognised)} · ${this._percent(c.confidence)}` : esc(this.t("unknown"));
     const rated = c.program && c.known_programs.includes(c.program) && !c.interrupted;
     const mark = !rated ? "" : sure && c.recognised === c.program ? `<span class="hit">✓</span>` : `<span class="miss">✗</span>`;
-    return `${mark}<span class="${sure ? "" : "muted"}">${said}</span>`;
+    const retro = c.recognition_retro ? ` <span class="badge">${esc(this.t("retro"))}</span>` : "";
+    return `${mark}<span class="${sure ? "" : "muted"}">${said}</span>${retro}`;
   }
 
   _select(device, c) {
@@ -295,12 +420,12 @@ class WashRDataPanel extends HTMLElement {
         return `<div class="cycle${open ? " open" : ""}">
           <button class="row" data-open="${esc(c.id)}" aria-expanded="${open}">
             <span class="when">${esc(this._when(c.start))}</span>
-            <span class="facts">${this._duration(c.duration_s)} · ${this._num(c.energy_kwh, 2)} kWh${c.interrupted ? ` · ${esc(this.t("interrupted"))}` : ""}${c.reference ? ` · ${esc(this.t("reference"))}` : ""}</span>
+            <span class="facts">${this._duration(c.duration_s)} · ${this._num(c.energy_kwh, 2)} kWh${c.cost != null ? ` · ${this._money(c.cost, device.currency)}` : ""}${c.interrupted ? ` · ${esc(this.t("interrupted"))}` : ""}${c.reference ? ` · ${esc(this.t("reference"))}` : ""}</span>
             ${this._sparkline(c.curve)}
           </button>
           <div class="labels">
             <label>${esc(this.t("program"))} ${source}${this._select(device, c)}</label>
-            <div class="verdict"><span class="muted small">${esc(this.t("recognition"))}</span> ${this._verdict(c)}</div>
+            <div class="verdict"><span class="muted small">${esc(this.t("recognition"))}</span> ${this._verdict(device, c)}</div>
           </div>
           ${open ? this._detail(device, c) : ""}
         </div>`;
@@ -319,7 +444,19 @@ class WashRDataPanel extends HTMLElement {
       ${this._chart([{ curve: c.curve, main: true }, ...refs])}
       <div class="legend"><span class="key main"></span>${esc(this.t("this_cycle"))}${compare ? `<span class="key ref"></span>${esc(refs.length ? this.t("references_of", { program: compare }) : this.t("no_references", { program: compare }))}` : ""}</div>
       <div class="muted small">${esc(this.t("peak"))} ${c.peak_w} W</div>
+      ${this._replay(c)}
     </div>`;
+  }
+
+  _replay(c) {
+    const e = c.evaluation;
+    if (!e) return "";
+    const parts = [
+      e.first_shown_min != null ? this.t("replay_shown", { minute: e.first_shown_min }) : this.t("replay_never"),
+      e.wrong_shown ? this.t("replay_wrong") : "",
+      this.t("replay_remaining", { offset: this._offset(e.remaining_error_s["0.5"]) }),
+    ].filter(Boolean);
+    return `<div class="muted small">${esc(this.t("replay"))}: ${esc(parts.join(" · "))}</div>`;
   }
 
   _programs(device) {
@@ -366,6 +503,12 @@ class WashRDataPanel extends HTMLElement {
     root.querySelectorAll("[data-delete]").forEach((el) =>
       el.addEventListener("click", () => this._delete(el.dataset.delete))
     );
+    root.querySelectorAll("[data-thresholds]").forEach((el) =>
+      el.addEventListener("click", () => {
+        const [show, auto] = el.dataset.thresholds.split(",").map(Number);
+        this._applyThresholds(show, auto);
+      })
+    );
   }
 
   async _call(msg) {
@@ -384,6 +527,11 @@ class WashRDataPanel extends HTMLElement {
       if (!program) return this._render();
     }
     await this._call({ type: "washrdata/label", cycle_id: cycleId, program });
+  }
+
+  async _applyThresholds(show, auto) {
+    if (!confirm(this.t("apply_confirm", { show: this._percent(show), auto: this._percent(auto) }))) return;
+    await this._call({ type: "washrdata/set_thresholds", show, auto });
   }
 
   async _rename(program) {
@@ -405,86 +553,5 @@ function niceTicks(max, count) {
   return ticks;
 }
 
-const STYLE = `
-  :host { display: block; min-height: 100vh; background: var(--primary-background-color); color: var(--primary-text-color);
-    font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif); }
-  .toolbar { display: flex; align-items: center; gap: 8px; height: var(--header-height, 56px); padding: 0 12px;
-    background: var(--app-header-background-color, var(--primary-color)); color: var(--app-header-text-color, #fff);
-    border-bottom: var(--app-header-border-bottom, none); box-sizing: border-box; }
-  .toolbar h1 { font-size: 20px; font-weight: 400; margin: 0; }
-  .content { padding: 16px; max-width: 1100px; margin: 0 auto; box-sizing: border-box; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
-  .card { background: var(--card-background-color, #fff); border-radius: var(--ha-card-border-radius, 12px);
-    border: 1px solid var(--divider-color); padding: 16px; margin-bottom: 16px; box-shadow: var(--ha-card-box-shadow, none); }
-  .grid .card { margin-bottom: 0; }
-  .grid { margin-bottom: 16px; }
-  h2 { font-size: 16px; font-weight: 500; margin: 0 0 12px; }
-  .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-  button { font: inherit; color: inherit; }
-  .tab { border: 1px solid var(--divider-color); background: var(--card-background-color); border-radius: 18px; padding: 6px 14px; cursor: pointer; }
-  .tab.active { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: var(--primary-color); }
-  .state { font-size: 22px; margin-bottom: 8px; }
-  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0 0 12px; }
-  dt { color: var(--secondary-text-color); }
-  dd { margin: 0; }
-  .meter { height: 6px; border-radius: 3px; background: var(--divider-color); overflow: hidden; margin-bottom: 12px; }
-  .meter div { height: 100%; background: var(--primary-color); }
-  .big { font-size: 40px; font-weight: 300; }
-  .muted { color: var(--secondary-text-color); }
-  .small { font-size: 12px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
-  th, td { text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--divider-color); }
-  th:first-child, td:first-child { text-align: left; }
-  th { font-weight: 500; color: var(--secondary-text-color); }
-  .chart { padding: 8px 4px 22px 52px; }
-  .plot { position: relative; height: 180px; }
-  .detail .plot { height: 240px; }
-  .plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-  .plot line, .plot path { vector-effect: non-scaling-stroke; }
-  .plot .grid { stroke: var(--divider-color); stroke-width: 1; }
-  .plot path { fill: none; stroke-linejoin: round; }
-  .plot .main { stroke: var(--primary-color); stroke-width: 2; }
-  .plot .ref { stroke: var(--secondary-text-color); stroke-width: 1.2; opacity: 0.45; }
-  .ylabel, .xlabel { position: absolute; font-size: 11px; color: var(--secondary-text-color); white-space: nowrap; }
-  .ylabel { right: calc(100% + 6px); transform: translateY(-50%); }
-  .xlabel { top: calc(100% + 4px); transform: translateX(-50%); }
-  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; color: var(--secondary-text-color); margin-top: 4px; }
-  .key { display: inline-block; width: 16px; height: 3px; border-radius: 2px; }
-  .key.main { background: var(--primary-color); }
-  .key.ref { background: var(--secondary-text-color); opacity: 0.6; }
-  .cycles { display: flex; flex-direction: column; }
-  .cycle { border-bottom: 1px solid var(--divider-color); padding: 8px 0; }
-  .cycle:last-child { border-bottom: none; }
-  .row { display: grid; grid-template-columns: minmax(110px, max-content) 1fr 120px; gap: 12px; align-items: center;
-    width: 100%; background: none; border: none; text-align: left; padding: 4px 0; cursor: pointer; }
-  .when { font-weight: 500; }
-  .spark { width: 120px; height: 28px; }
-  .spark polyline { fill: none; stroke: var(--primary-color); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-  .labels { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; margin-top: 4px; }
-  .labels label { display: flex; align-items: center; gap: 8px; }
-  select { font: inherit; color: var(--primary-text-color); background: var(--card-background-color);
-    border: 1px solid var(--divider-color); border-radius: 6px; padding: 4px 6px; max-width: 220px; }
-  .verdict { display: flex; gap: 6px; align-items: center; }
-  .badge { font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--secondary-background-color, #eee); color: var(--secondary-text-color); }
-  .hit { color: var(--success-color, #2e7d32); font-weight: 700; }
-  .miss { color: var(--error-color, #c62828); font-weight: 700; }
-  .detail { margin-top: 12px; }
-  .compare { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .programs { list-style: none; margin: 0; padding: 0; }
-  .programs li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--divider-color); }
-  .programs li:last-child { border-bottom: none; }
-  .programs li > span:last-child { white-space: nowrap; }
-  .text { background: none; border: none; color: var(--primary-color); cursor: pointer; padding: 4px 8px; }
-  .text.danger { color: var(--error-color, #c62828); }
-  .empty { color: var(--secondary-text-color); padding: 8px 0; }
-  .error { color: var(--error-color, #c62828); }
-  @media (max-width: 600px) {
-    .content { padding: 8px; }
-    .grid { grid-template-columns: 1fr; }
-    .row { grid-template-columns: 1fr 90px; }
-    .row .facts { grid-column: 1; grid-row: 2; font-size: 13px; color: var(--secondary-text-color); }
-    .row .spark { grid-column: 2; grid-row: 1 / span 2; width: 90px; }
-  }
-`;
 
 customElements.define("washrdata-panel", WashRDataPanel);

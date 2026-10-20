@@ -16,6 +16,10 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: pytest
+      # The panel in a real browser, with the data pytest wrote from a real Home Assistant.
+      - run: npm install --no-save playwright@1.56.1
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/frontend/panel_smoke.mjs
 
   hassfest:
     runs-on: ubuntu-latest

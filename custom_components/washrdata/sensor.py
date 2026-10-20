@@ -212,12 +212,36 @@ SENSORS: tuple[WashRDataSensorDescription, ...] = (
 )
 
 
+def _cost(cycle: CycleRecord | None) -> float | None:
+    return round(cycle.cost, 2) if cycle and cycle.cost is not None else None
+
+
+# Only with a price entity configured.
+COST_SENSORS: tuple[WashRDataSensorDescription, ...] = (
+    WashRDataSensorDescription(
+        key="cycle_cost",
+        translation_key="cycle_cost",
+        device_class=SensorDeviceClass.MONETARY,
+        value_fn=lambda d: _cost(d.detector.cycle),
+    ),
+    WashRDataSensorDescription(
+        key="last_cycle_cost",
+        translation_key="last_cycle_cost",
+        device_class=SensorDeviceClass.MONETARY,
+        value_fn=lambda d: _cost(d.last_cycle),
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: WashRDataConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    async_add_entities(WashRDataSensor(entry.runtime_data, d) for d in SENSORS)
+    device = entry.runtime_data
+    async_add_entities(WashRDataSensor(device, d) for d in SENSORS)
+    if device.price_entity:
+        async_add_entities(WashRDataCostSensor(device, d) for d in COST_SENSORS)
 
 
 class WashRDataSensor(WashRDataEntity, SensorEntity):
@@ -230,3 +254,9 @@ class WashRDataSensor(WashRDataEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         return self.entity_description.attrs_fn(self.device)
+
+
+class WashRDataCostSensor(WashRDataSensor):
+    @property
+    def native_unit_of_measurement(self) -> str:
+        return self.hass.config.currency

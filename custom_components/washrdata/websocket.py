@@ -14,9 +14,10 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, signal_update
+from .const import DOMAIN, OPT_AUTO_LABEL_CONFIDENCE, OPT_SHOW_CONFIDENCE, signal_update
 from .device import WashRDataDevice
 from .engine import CycleRecord, MatchResult
+from .engine.evaluation import CycleEvaluation, Evaluation
 from .engine.matching import resample
 
 # Curves go to the panel as one mean value per minute.
@@ -27,7 +28,36 @@ def _curve(cycle: CycleRecord, now: float | None = None) -> list[float]:
     return [round(w, 1) for w in resample(cycle.trace, cycle.duration(now), CURVE_STEP_S)]
 
 
-def cycle_json(cycle: CycleRecord, references: set[str], now: float | None = None) -> dict[str, Any]:
+def _cycle_evaluation(e: CycleEvaluation | None, show: float) -> dict[str, Any] | None:
+    if e is None:
+        return None
+    return {
+        "final": e.final,
+        "confidence": e.final_confidence,
+        "first_shown_min": e.first_shown(show),
+        "wrong_shown": e.wrong_shown(show),
+        "remaining_error_s": {str(p): e.remaining_error(p) for p in (0.25, 0.5, 0.75)},
+    }
+
+
+def _evaluation_json(evaluation: Evaluation | None) -> dict[str, Any] | None:
+    if evaluation is None:
+        return None
+    return {
+        "cycles": len(evaluation.cycles),
+        "recommended_show": evaluation.recommended_show,
+        "recommended_auto": evaluation.recommended_auto,
+        "thresholds": [vars(r) for r in evaluation.thresholds],
+        "remaining": [vars(r) for r in evaluation.remaining],
+    }
+
+
+def cycle_json(
+    cycle: CycleRecord,
+    references: set[str],
+    now: float | None = None,
+    evaluation: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     return {
         "id": cycle.id,
         "start": cycle.start,
@@ -41,6 +71,9 @@ def cycle_json(cycle: CycleRecord, references: set[str], now: float | None = Non
         "recognised": cycle.recognised,
         "confidence": cycle.match_confidence,
         "known_programs": cycle.known_programs,
+        "recognition_retro": cycle.recognition_retro,
+        "cost": round(cycle.cost, 2) if cycle.cost is not None else None,
+        "evaluation": evaluation,
         "reference": cycle.id in references,
         "curve": _curve(cycle, now),
     }
@@ -61,25 +94,55 @@ def _match_json(match: MatchResult | None) -> dict[str, Any] | None:
     }
 
 
-def device_json(device: WashRDataDevice) -> dict[str, Any]:
+def revision(device: WashRDataDevice) -> str:
+    """Changes whenever the stored cycles, programs or the evaluation change."""
+    tracker = device.tracker
+    key = (
+        tuple(tracker.programs),
+        tuple((c.id, c.program, c.program_source, c.recognised, c.match_confidence) for c in tracker.history),
+        id(device.evaluation),
+    )
+    return str(hash(key))
+
+
+def live_json(device: WashRDataDevice) -> dict[str, Any]:
+    """The running cycle only, cheap enough to send every few seconds."""
     tracker = device.tracker
     now = dt_util.utcnow().timestamp()
     refs = {c.id for cycles in tracker.references().values() for c in cycles}
-    accuracy = tracker.accuracy()
     return {
         "entry_id": device.entry.entry_id,
+        "state": tracker.state.value,
+        "current": cycle_json(tracker.cycle, refs, now) if tracker.cycle else None,
+        "match": _match_json(tracker.match),
+        "revision": revision(device),
+    }
+
+
+def device_json(device: WashRDataDevice) -> dict[str, Any]:
+    tracker = device.tracker
+    config = tracker.config
+    refs = {c.id for cycles in tracker.references().values() for c in cycles}
+    accuracy = tracker.accuracy()
+    evaluated = {e.cycle_id: e for e in device.evaluation.cycles} if device.evaluation else {}
+    return {
+        **live_json(device),
         "title": device.entry.title,
         "device_type": device.device_type.value,
-        "state": tracker.state.value,
+        "currency": device.hass.config.currency,
+        "price_entity": device.price_entity,
+        "thresholds": {"show": config.show_confidence, "auto": config.auto_label_confidence},
+        "evaluation": _evaluation_json(device.evaluation),
         "programs": list(tracker.programs),
         "accuracy": {
             "cycles": accuracy.total.cycles,
             "hits": accuracy.total.hits,
             "programs": {p: {"cycles": a.cycles, "hits": a.hits} for p, a in accuracy.programs.items()},
         },
-        "current": cycle_json(tracker.cycle, refs, now) if tracker.cycle else None,
-        "match": _match_json(tracker.match),
-        "cycles": [cycle_json(c, refs) for c in reversed(tracker.history)],
+        "cycles": [
+            cycle_json(c, refs, evaluation=_cycle_evaluation(evaluated.get(c.id), config.show_confidence))
+            for c in reversed(tracker.history)
+        ],
     }
 
 
@@ -104,6 +167,13 @@ def _find(
 @callback
 def ws_overview(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
     connection.send_result(msg["id"], {"devices": [device_json(d) for d in _devices(hass)]})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "washrdata/live", vol.Required("entry_id"): str})
+@callback
+def ws_live(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    if (device := _find(hass, connection, msg)) is not None:
+        connection.send_result(msg["id"], live_json(device))
 
 
 @websocket_api.websocket_command({vol.Required("type"): "washrdata/subscribe"})
@@ -197,7 +267,34 @@ def ws_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, m
     connection.send_result(msg["id"])
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "washrdata/set_thresholds",
+        vol.Required("entry_id"): str,
+        vol.Required("show"): vol.All(vol.Coerce(float), vol.Range(min=0.05, max=0.95)),
+        vol.Required("auto"): vol.All(vol.Coerce(float), vol.Range(min=0.05, max=0.95)),
+    }
+)
+@callback
+def ws_set_thresholds(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Applies thresholds, e.g. the evaluation's recommendation; reloads the device."""
+    if (device := _find(hass, connection, msg)) is None:
+        return
+    if msg["show"] > msg["auto"]:
+        connection.send_error(msg["id"], websocket_api.ERR_INVALID_FORMAT, "show above auto")
+        return
+    entry = device.entry
+    options = {
+        **entry.options,
+        OPT_SHOW_CONFIDENCE: round(msg["show"] * 100),
+        OPT_AUTO_LABEL_CONFIDENCE: round(msg["auto"] * 100),
+    }
+    hass.config_entries.async_update_entry(entry, options=options)
+    hass.config_entries.async_schedule_reload(entry.entry_id)
+    connection.send_result(msg["id"])
+
+
 @callback
 def async_register_websocket(hass: HomeAssistant) -> None:
-    for command in (ws_overview, ws_subscribe, ws_label, ws_rename, ws_delete):
+    for command in (ws_overview, ws_live, ws_subscribe, ws_label, ws_rename, ws_delete, ws_set_thresholds):
         websocket_api.async_register_command(hass, command)

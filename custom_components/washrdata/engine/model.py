@@ -41,6 +41,11 @@ class LabelSource(StrEnum):
 
 ACTIVE_STATES = frozenset({State.RUNNING, State.PAUSED})
 
+# Default confidence thresholds of program recognition: a program is shown
+# from SHOW_CONFIDENCE, a finished cycle is labelled from AUTO_LABEL_CONFIDENCE.
+SHOW_CONFIDENCE = 0.25
+AUTO_LABEL_CONFIDENCE = 0.6
+
 
 @dataclass(frozen=True)
 class DetectorConfig:
@@ -74,6 +79,9 @@ class DetectorConfig:
     unavailable_timeout_s: float
     # Gaps between samples longer than this are not integrated (restarts).
     max_sample_gap_s: float = 900.0
+    # Program recognition thresholds, adjustable per appliance.
+    show_confidence: float = SHOW_CONFIDENCE
+    auto_label_confidence: float = AUTO_LABEL_CONFIDENCE
 
     def with_overrides(self, overrides: dict[str, Any]) -> DetectorConfig:
         known = {f.name for f in fields(self)}
@@ -139,6 +147,10 @@ class CycleRecord:
     recognised: str | None = None
     # Programs that had references while the cycle ran; only these could be recognised.
     known_programs: list[str] = field(default_factory=list)
+    # Recognition filled in later by the evaluation (cycles from before 0.2.4).
+    recognition_retro: bool = False
+    # Energy cost while a price was known, in the currency of the price.
+    cost: float | None = None
     # (seconds since start, watts), change-compressed.
     trace: list[tuple[float, float]] = field(default_factory=list)
 

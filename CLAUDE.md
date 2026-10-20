@@ -42,16 +42,18 @@ custom_components/washrdata/
     learning.py      Aus eigenen Zyklen gelernte Schwellen
     matching.py      Programmerkennung: Resampling, inkrementelles Open-End-DTW, Konfidenz
     tracker.py       Detector + Programme + Zyklus-Historie + Matcher eines Geräts
+    evaluation.py    Leave-one-out-Auswertung: Schwellen, Restzeit-Genauigkeit, Empfehlung
   device.py          Adapter: Sensor-Events und Ticks -> Tracker, Events, Speicher
   services.py        Dienste (label_cycle, create/rename/delete_program)
   diagnostics.py     Diagnose-Download mit allen Kurven
   websocket.py       WebSocket-Befehle des Panels (overview, subscribe, label, rename/delete_program)
   panel.py           Registriert das Panel in der Seitenleiste und liefert frontend/ aus
-  frontend/          washrdata-panel.js: Web-Komponente ohne Build-Schritt, Texte aus selector.panel
+  frontend/          washrdata-panel.js (+ -style.js): Web-Komponente ohne Build-Schritt, Texte aus selector.panel
   cycle_view.py      Zyklus-Zeilen und Textkurve für den Optionen-Dialog „Zyklen bearbeiten“
   sensor.py, binary_sensor.py, select.py, text.py, entity.py, config_flow.py, const.py
   strings.json, translations/{en,de}.json
   brand/             icon.png (256 px), icon@2x.png (512 px), gerendert aus tools/icon.svg
+blueprints/automation/washrdata/   Blueprints für Benachrichtigungen (fertig, Vorwarnung)
 tools/
   icon.svg           Quelle des Integrations-Icons
   viewer.html        Kurven-Viewer für Diagnose-Dateien (eigenständige Seite, auch als Artifact veröffentlicht)
@@ -59,6 +61,7 @@ tests/
   engine/            reine Engine-Tests auf simulierten Leistungskurven (sim.py) und echten (test_real_curves.py)
   fixtures/          echte Zyklen aus Diagnose-Dateien, anonymisiert (Startzeit 0, keine Entitäts-IDs)
   integration/       Tests mit echtem Home Assistant (pytest-homeassistant-custom-component)
+  frontend/          Browser-Test des Panels (panel_smoke.mjs); Daten schreibt test_panel_data.py
 ```
 
 ## Regeln
@@ -84,4 +87,5 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/pytest                    # alle Tests
 .venv/bin/pytest tests/engine       # nur Engine, ohne Home Assistant
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
+npm install --no-save playwright@1.56.1 && node tests/frontend/panel_smoke.mjs   # nach pytest
 ```

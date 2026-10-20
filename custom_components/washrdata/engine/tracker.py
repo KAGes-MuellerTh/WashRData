@@ -6,18 +6,16 @@ from dataclasses import dataclass
 from typing import Any
 
 from .detector import CycleDetector
+from .evaluation import select_references
 from .matching import MatchResult, ProgramMatcher, _Snapshot
 from .model import CycleRecord, DetectorConfig, Event, EventKind, LabelSource, State
 
-REFS_PER_PROGRAM = 5
 KEEP_RECENT = 50
 KEEP_LABELLED_PER_PROGRAM = 10
 # Recognised programs with at least this confidence hold off the end while
 # they still have this much to go.
 HOLD_CONFIDENCE = 0.5
 HOLD_MIN_REMAINING_S = 600.0
-# Finished cycles matched at least this well are labelled automatically.
-AUTO_LABEL_CONFIDENCE = 0.6
 
 CURRENT = "current"
 LAST = "last"
@@ -63,6 +61,10 @@ class Tracker:
         self._checkpoint: _Snapshot | None = None
 
     @property
+    def config(self) -> DetectorConfig:
+        return self.detector.config
+
+    @property
     def cycle(self) -> CycleRecord | None:
         return self.detector.cycle
 
@@ -106,7 +108,7 @@ class Tracker:
         matcher.update(cycle, ts)
         forced = cycle.program if cycle.program_source == LabelSource.MANUAL else None
         previous = self.match.program if self.match else None
-        self.match = matcher.result(cycle.duration(ts), forced)
+        self.match = matcher.result(cycle.duration(ts), forced, self.config.show_confidence)
         if self.match and self.match.program and self.match.program != previous:
             out.append(Event(EventKind.PROGRAM_DETECTED, ts, cycle))
         self.detector.hold_end = bool(
@@ -133,7 +135,11 @@ class Tracker:
                 program, conf = final
                 cycle.recognised = program
                 cycle.match_confidence = round(conf, 3)
-                if cycle.program is None and conf >= AUTO_LABEL_CONFIDENCE and not cycle.interrupted:
+                if (
+                    cycle.program is None
+                    and conf >= self.config.auto_label_confidence
+                    and not cycle.interrupted
+                ):
                     cycle.program = program
                     cycle.program_source = LabelSource.AUTO
             elif cycle.known_programs:
@@ -158,13 +164,7 @@ class Tracker:
     # -- programs --------------------------------------------------------
 
     def references(self) -> dict[str, list[CycleRecord]]:
-        refs: dict[str, list[CycleRecord]] = {}
-        for program in self.programs:
-            labelled = [c for c in self.history if c.program == program and not c.interrupted]
-            labelled.sort(key=lambda c: (c.program_source == LabelSource.MANUAL, c.start), reverse=True)
-            if labelled:
-                refs[program] = labelled[:REFS_PER_PROGRAM]
-        return refs
+        return select_references(self.history, self.programs)
 
     def find_cycle(self, target: str) -> CycleRecord | None:
         if target == CURRENT:
@@ -242,7 +242,9 @@ class Tracker:
         for c in self.history:
             if c.interrupted or not c.program or c.program not in c.known_programs:
                 continue
-            hit = c.recognised == c.program and (c.match_confidence or 0.0) >= AUTO_LABEL_CONFIDENCE
+            hit = (
+                c.recognised == c.program and (c.match_confidence or 0.0) >= self.config.auto_label_confidence
+            )
             for stats in (total, per_program.setdefault(c.program, ProgramAccuracy())):
                 stats.cycles += 1
                 stats.hits += hit

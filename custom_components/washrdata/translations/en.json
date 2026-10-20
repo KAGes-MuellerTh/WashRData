@@ -35,13 +35,19 @@
           "start_power_w": "Start power",
           "stop_power_w": "Stop power",
           "end_delay_min": "End delay",
-          "anti_crease": "Anti-crease detection"
+          "anti_crease": "Anti-crease detection",
+          "show_confidence": "Show program from",
+          "auto_label_confidence": "Label automatically from",
+          "price_entity": "Energy price"
         },
         "data_description": {
           "start_power_w": "At or above this power the appliance counts as active.",
           "stop_power_w": "Below this power the appliance counts as quiet. Must not be above the start power.",
           "end_delay_min": "Quiet time after which a cycle counts as finished.",
-          "anti_crease": "Short drum turns after the end are anti-crease, not a new cycle."
+          "anti_crease": "Short drum turns after the end are anti-crease, not a new cycle.",
+          "show_confidence": "Confidence from which the recognised program, remaining time and end are shown.",
+          "auto_label_confidence": "Confidence at the end from which a run gets the program by itself. Not below the display threshold.",
+          "price_entity": "Entity with the price per kWh, e.g. input_number.strompreis_energie. Prices in ct/kWh are converted. Leave empty for no cost."
         }
       },
       "cycles": {
@@ -71,7 +77,8 @@
       }
     },
     "error": {
-      "stop_above_start": "Stop power must not be above start power."
+      "stop_above_start": "Stop power must not be above start power.",
+      "show_above_auto": "The display threshold must not be above the labelling threshold."
     },
     "abort": {
       "no_cycles": "No finished cycles yet."
@@ -138,7 +145,45 @@
         "rename": "Rename",
         "delete": "Delete",
         "rename_prompt": "New name for {program}",
-        "delete_confirm": "Delete {program}? Its cycles are kept, without a program."
+        "delete_confirm": "Delete {program}? Its cycles are kept, without a program.",
+        "cost_so_far": "Cost so far",
+        "statistics": "Statistics per program",
+        "runs": "Runs",
+        "avg_duration": "Ø duration",
+        "avg_energy": "Ø energy",
+        "avg_cost": "Ø cost",
+        "per_week": "Per week",
+        "statistics_help": "From the stored, complete runs with a program. Cost only for runs with a known price.",
+        "evaluation": "Evaluation",
+        "evaluation_pending": "The evaluation runs shortly after start and after every change.",
+        "evaluation_empty": "Nothing to evaluate yet: a program needs at least two labelled runs.",
+        "now_show": "display now",
+        "now_auto": "label now",
+        "recommend_need": "A recommendation needs at least {count} evaluated runs.",
+        "recommend": "Recommended: display from {show}, label automatically from {auto}.",
+        "recommend_applied": "in use",
+        "apply": "Apply",
+        "apply_confirm": "Display programs from {show} and label automatically from {auto}? The appliance reloads briefly.",
+        "evaluation_intro": "Every stored, labelled run is replayed against the other runs as references ({count} runs), as if it ran again now.",
+        "thresholds": "Thresholds",
+        "threshold": "Threshold",
+        "wrong_shown": "Wrong shown",
+        "never_shown": "Never shown",
+        "shown_after": "Right after",
+        "auto_correct": "Label right",
+        "auto_wrong": "Label wrong",
+        "auto_missed": "No label",
+        "remaining_accuracy": "Remaining time",
+        "at_progress": "At",
+        "mean_error": "Ø deviation",
+        "bias": "Tendency",
+        "evaluation_help": "Wrong shown: runs that showed a wrong program at some point. Right after: median minute the right program first appeared. Tendency: + means the remaining time was too long, − too short.",
+        "retro": "evaluated later",
+        "replay": "Replay",
+        "replay_shown": "right program from minute {minute}",
+        "replay_never": "right program never shown",
+        "replay_wrong": "a wrong program shown in between",
+        "replay_remaining": "remaining time at half {offset}"
       }
     }
   },
@@ -198,6 +243,12 @@
       },
       "progress": {
         "name": "Progress"
+      },
+      "cycle_cost": {
+        "name": "Cycle cost"
+      },
+      "last_cycle_cost": {
+        "name": "Last cycle cost"
       }
     },
     "select": {

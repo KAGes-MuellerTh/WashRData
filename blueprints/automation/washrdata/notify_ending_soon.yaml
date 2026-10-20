@@ -1,0 +1,74 @@
+blueprint:
+  name: "WashRData: warn before the end / Vorwarnung vor dem Ende"
+  description: >
+    Sends a notification when the remaining time of a running cycle drops below a number of
+    minutes. Needs a recognised program, since only then is there a remaining time.
+    Schickt eine Benachrichtigung, wenn die Restzeit eines laufenden Zyklus unter eine Zahl von
+    Minuten fällt. Braucht ein erkanntes Programm, denn nur dann gibt es eine Restzeit.
+  domain: automation
+  source_url: https://github.com/RookieIVG/WashRData/blob/main/blueprints/automation/washrdata/notify_ending_soon.yaml
+  input:
+    remaining_sensor:
+      name: Time remaining sensor / Restzeit-Sensor
+      description: sensor.<name>_time_remaining
+      selector:
+        entity:
+          filter:
+            - integration: washrdata
+              domain: sensor
+              device_class: duration
+    minutes:
+      name: Minutes before the end / Minuten vor dem Ende
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: min
+    notify_device:
+      name: Phone / Handy
+      selector:
+        device:
+          filter:
+            - integration: mobile_app
+    title:
+      name: Title / Titel
+      default: "Gleich fertig"
+      selector:
+        text:
+    message:
+      name: Message / Text
+      description: "Variables / Variablen: remaining (min), end (HH:MM)."
+      default: "Noch {{ remaining }} min, fertig gegen {{ end }}."
+      selector:
+        text:
+          multiline: true
+    extra_actions:
+      name: Further actions / Weitere Aktionen
+      default: []
+      selector:
+        action:
+
+# A new warning only after the cycle is over and the time rose again.
+mode: single
+
+triggers:
+  - trigger: numeric_state
+    entity_id: !input remaining_sensor
+    below: !input minutes
+
+variables:
+  remaining: "{{ trigger.to_state.state | int(0) }}"
+  end: "{{ (now() + timedelta(minutes=remaining)).strftime('%H:%M') }}"
+
+conditions:
+  - condition: template
+    value_template: "{{ trigger.from_state is not none and trigger.from_state.state not in ['unknown', 'unavailable'] }}"
+
+actions:
+  - domain: mobile_app
+    type: notify
+    device_id: !input notify_device
+    title: !input title
+    message: !input message
+  - sequence: !input extra_actions

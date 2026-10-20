@@ -23,7 +23,10 @@ from .const import (
     DOMAIN,
     NO_PROGRAM,
     OPT_ANTI_CREASE,
+    OPT_AUTO_LABEL_CONFIDENCE,
     OPT_END_DELAY_MIN,
+    OPT_PRICE_ENTITY,
+    OPT_SHOW_CONFIDENCE,
     OPT_START_POWER,
     OPT_STOP_POWER,
     build_config,
@@ -39,6 +42,14 @@ def _watts() -> selector.NumberSelector:
     return selector.NumberSelector(
         selector.NumberSelectorConfig(
             min=0, max=500, step=0.5, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX
+        )
+    )
+
+
+def _percent() -> selector.NumberSelector:
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=5, max=95, step=5, unit_of_measurement="%", mode=selector.NumberSelectorMode.SLIDER
         )
     )
 
@@ -88,6 +99,8 @@ class WashRDataOptionsFlow(OptionsFlowWithReload):
         if user_input is not None:
             if user_input[OPT_STOP_POWER] > user_input[OPT_START_POWER]:
                 errors["base"] = "stop_above_start"
+            elif user_input[OPT_SHOW_CONFIDENCE] > user_input[OPT_AUTO_LABEL_CONFIDENCE]:
+                errors["base"] = "show_above_auto"
             else:
                 return self.async_create_entry(data=user_input)
 
@@ -108,10 +121,16 @@ class WashRDataOptionsFlow(OptionsFlowWithReload):
                     )
                 ),
                 vol.Required(OPT_ANTI_CREASE, default=config.anti_crease): selector.BooleanSelector(),
+                vol.Required(OPT_SHOW_CONFIDENCE, default=round(config.show_confidence * 100)): _percent(),
+                vol.Required(
+                    OPT_AUTO_LABEL_CONFIDENCE, default=round(config.auto_label_confidence * 100)
+                ): _percent(),
+                vol.Optional(OPT_PRICE_ENTITY): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=["input_number", "number", "sensor"])
+                ),
             }
         )
-        if user_input is not None:
-            schema = self.add_suggested_values_to_schema(schema, user_input)
+        schema = self.add_suggested_values_to_schema(schema, user_input or dict(self.config_entry.options))
         return self.async_show_form(step_id="settings", data_schema=schema, errors=errors)
 
     def _history(self) -> list[CycleRecord]:

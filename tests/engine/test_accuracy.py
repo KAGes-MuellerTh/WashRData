@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from engine import CURRENT, LAST, LabelSource
-from engine.tracker import AUTO_LABEL_CONFIDENCE
+from engine import AUTO_LABEL_CONFIDENCE, CURRENT, LAST, LabelSource
 
 from .sim import play
 from .test_matching import COTTON, ECO, QUICK, trained

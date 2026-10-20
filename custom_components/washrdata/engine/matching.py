@@ -18,7 +18,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from statistics import median
 
-from .model import CycleRecord
+from .model import SHOW_CONFIDENCE, CycleRecord
 
 STEP_S = 60.0
 # Below this many minutes nothing is reported.
@@ -36,8 +36,6 @@ MAX_SCORE = 0.8
 # "None of the known programs" always competes with this score, so a lone
 # program needs a clearly good match, not merely the only one.
 UNKNOWN_SCORE = 0.25
-# Reported programs need at least this confidence.
-SHOW_CONFIDENCE = 0.25
 # Closed-end matches must also have a plausible length.
 MAX_LENGTH_RATIO = 1.4
 POWER_SCALE_W = 20.0
@@ -179,8 +177,10 @@ class ProgramMatcher:
     def snapshot(self) -> _Snapshot:
         return _Snapshot(self._points, [list(r.row) if r.row else None for r in self._refs])
 
-    def result(self, elapsed_s: float, forced_program: str | None = None) -> MatchResult | None:
-        """Open-end match of the cycle so far."""
+    def result(
+        self, elapsed_s: float, forced_program: str | None = None, show: float = SHOW_CONFIDENCE
+    ) -> MatchResult | None:
+        """Open-end match of the cycle so far; a program is reported from confidence `show`."""
         n = self._points
         if n < MIN_POINTS or not self._refs:
             return None
@@ -198,7 +198,7 @@ class ProgramMatcher:
             program, conf, manual = forced_program, 1.0, True
         else:
             conf = recognition
-            program = recognised if conf >= SHOW_CONFIDENCE else None
+            program = recognised if conf >= show else None
             manual = False
         extra = {"recognised": recognised, "recognition_confidence": recognition}
         if program is None or program not in per_program:

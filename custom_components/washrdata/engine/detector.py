@@ -35,6 +35,7 @@ class _Activity:
 
     start: float
     energy_wh: float = 0.0
+    cost: float = 0.0
     peak_power_w: float = 0.0
     trace: list[tuple[float, float]] = field(default_factory=list)
 
@@ -60,6 +61,8 @@ class CycleDetector:
         # Set by the program matcher: the recognised program is not over yet,
         # so quiet time up to max_end_delay_s does not end the cycle.
         self.hold_end = False
+        # Energy price per kWh, set by the adapter; None while unknown.
+        self.price: float | None = None
 
     @property
     def end_delay(self) -> float:
@@ -100,10 +103,14 @@ class CycleDetector:
             return
         wh = self._power * dt / 3600.0
         self.total_energy_wh += wh
+        cost = wh / 1000 * self.price if self.price is not None else None
         if self.cycle is not None:
             self.cycle.energy_wh += wh
+            if cost is not None:
+                self.cycle.cost = (self.cycle.cost or 0.0) + cost
         elif self._candidate is not None:
             self._candidate.energy_wh += wh
+            self._candidate.cost += cost or 0.0
 
     def _set_activity(self, ts: float, power: float | None) -> None:
         if power is None:
@@ -250,6 +257,8 @@ class CycleDetector:
             cycle.resumed += 1
             cycle.interrupted = False
             cycle.energy_wh += c.energy_wh
+            if c.cost:
+                cycle.cost = (cycle.cost or 0.0) + c.cost
             cycle.peak_power_w = max(cycle.peak_power_w, c.peak_power_w)
             cycle.trace.extend((o + shift, p) for o, p in c.trace)
             if self._last_learned:
@@ -263,6 +272,7 @@ class CycleDetector:
                 energy_wh=c.energy_wh,
                 peak_power_w=c.peak_power_w,
                 trace=list(c.trace),
+                cost=c.cost if c.cost or self.price is not None else None,
             )
             kind = EventKind.STARTED
 
@@ -312,6 +322,7 @@ class CycleDetector:
                 {
                     "start": c.start,
                     "energy_wh": c.energy_wh,
+                    "cost": c.cost,
                     "peak_power_w": c.peak_power_w,
                     "trace": [list(p) for p in c.trace],
                 }
@@ -341,6 +352,7 @@ class CycleDetector:
             det._candidate = _Activity(
                 start=cand["start"],
                 energy_wh=cand["energy_wh"],
+                cost=cand.get("cost", 0.0),
                 peak_power_w=cand.get("peak_power_w", 0.0),
                 trace=[tuple(p) for p in cand.get("trace", [])],
             )

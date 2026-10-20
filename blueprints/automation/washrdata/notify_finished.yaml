@@ -1,0 +1,77 @@
+blueprint:
+  name: "WashRData: notify when finished / Meldung, wenn fertig"
+  description: >
+    Sends a notification when a WashRData appliance finishes a cycle, with program, duration,
+    energy and cost.
+    Schickt eine Benachrichtigung, wenn ein WashRData-Gerät einen Lauf beendet, mit Programm,
+    Dauer, Energie und Kosten.
+  domain: automation
+  source_url: https://github.com/RookieIVG/WashRData/blob/main/blueprints/automation/washrdata/notify_finished.yaml
+  input:
+    appliance:
+      name: Appliance / Gerät
+      selector:
+        device:
+          filter:
+            - integration: washrdata
+    notify_device:
+      name: Phone / Handy
+      description: Mobile app that gets the notification. / Companion-App, die die Meldung bekommt.
+      selector:
+        device:
+          filter:
+            - integration: mobile_app
+    title:
+      name: Title / Titel
+      default: "{{ name }} fertig"
+      selector:
+        text:
+    message:
+      name: Message / Text
+      description: >
+        Variables / Variablen: name, program, duration_min, energy_kwh, cost.
+      default: >-
+        {{ program or 'Lauf' }} nach {{ duration_min }} min, {{ energy_kwh }} kWh{{ (', ' ~ cost ~ ' €') if cost is not none else '' }}.
+      selector:
+        text:
+          multiline: true
+    skip_interrupted:
+      name: Skip interrupted runs / Abgebrochene Läufe auslassen
+      default: true
+      selector:
+        boolean:
+    extra_actions:
+      name: Further actions / Weitere Aktionen
+      default: []
+      selector:
+        action:
+
+mode: queued
+
+triggers:
+  - trigger: event
+    event_type: washrdata_cycle_finished
+
+variables:
+  appliance: !input appliance
+  skip_interrupted: !input skip_interrupted
+  cycle: "{{ trigger.event.data.cycle or {} }}"
+  name: "{{ trigger.event.data.name }}"
+  program: "{{ cycle.program }}"
+  duration_min: "{{ (cycle.duration_min or 0) | round(0) | int }}"
+  energy_kwh: "{{ (cycle.energy_kwh or 0) | round(2) }}"
+  cost: "{{ cycle.cost }}"
+
+conditions:
+  - condition: template
+    value_template: "{{ trigger.event.data.entry_id in (device_attr(appliance, 'config_entries') or []) }}"
+  - condition: template
+    value_template: "{{ not (skip_interrupted and cycle.interrupted) }}"
+
+actions:
+  - domain: mobile_app
+    type: notify
+    device_id: !input notify_device
+    title: !input title
+    message: !input message
+  - sequence: !input extra_actions

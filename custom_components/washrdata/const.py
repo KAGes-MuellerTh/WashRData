@@ -23,7 +23,14 @@ OPT_START_POWER = "start_power_w"
 OPT_STOP_POWER = "stop_power_w"
 OPT_END_DELAY_MIN = "end_delay_min"
 OPT_ANTI_CREASE = "anti_crease"
+# Recognition thresholds in percent.
+OPT_SHOW_CONFIDENCE = "show_confidence"
+OPT_AUTO_LABEL_CONFIDENCE = "auto_label_confidence"
+# Entity with the energy price per kWh (input_number, number or sensor).
+OPT_PRICE_ENTITY = "price_entity"
 
+# Leave-one-out evaluation runs this long after the last change.
+EVALUATION_DELAY_S = 30
 STORAGE_VERSION = 1
 SAVE_DELAY_S = 30
 # Lets timeouts fire when the plug only reports changes.
@@ -48,4 +55,8 @@ def build_config(device_type: DeviceType, options: dict[str, Any]) -> DetectorCo
         overrides["max_end_delay_s"] = max(preset.max_end_delay_s, end_delay)
     if OPT_ANTI_CREASE in options:
         overrides["anti_crease"] = bool(options[OPT_ANTI_CREASE])
+    if OPT_SHOW_CONFIDENCE in options:
+        overrides["show_confidence"] = float(options[OPT_SHOW_CONFIDENCE]) / 100
+    if OPT_AUTO_LABEL_CONFIDENCE in options:
+        overrides["auto_label_confidence"] = float(options[OPT_AUTO_LABEL_CONFIDENCE]) / 100
     return preset.with_overrides(overrides)

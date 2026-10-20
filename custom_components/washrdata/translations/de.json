@@ -35,13 +35,19 @@
           "start_power_w": "Startleistung",
           "stop_power_w": "Stoppleistung",
           "end_delay_min": "Endverzögerung",
-          "anti_crease": "Knitterschutz erkennen"
+          "anti_crease": "Knitterschutz erkennen",
+          "show_confidence": "Programm anzeigen ab",
+          "auto_label_confidence": "Selbst benennen ab",
+          "price_entity": "Strompreis"
         },
         "data_description": {
           "start_power_w": "Ab dieser Leistung gilt das Gerät als aktiv.",
           "stop_power_w": "Unter dieser Leistung gilt das Gerät als ruhig. Darf nicht über der Startleistung liegen.",
           "end_delay_min": "Ruhezeit, nach der ein Zyklus als beendet gilt.",
-          "anti_crease": "Kurze Trommelbewegungen nach dem Ende sind Knitterschutz, kein neuer Zyklus."
+          "anti_crease": "Kurze Trommelbewegungen nach dem Ende sind Knitterschutz, kein neuer Zyklus.",
+          "show_confidence": "Sicherheit, ab der erkanntes Programm, Restzeit und Ende angezeigt werden.",
+          "auto_label_confidence": "Sicherheit am Ende, ab der ein Lauf das Programm selbst bekommt. Nicht unter der Anzeigeschwelle.",
+          "price_entity": "Entität mit dem Preis pro kWh, z. B. input_number.strompreis_energie. Preise in ct/kWh werden umgerechnet. Leer lassen für keine Kosten."
         }
       },
       "cycles": {
@@ -71,7 +77,8 @@
       }
     },
     "error": {
-      "stop_above_start": "Die Stoppleistung darf nicht über der Startleistung liegen."
+      "stop_above_start": "Die Stoppleistung darf nicht über der Startleistung liegen.",
+      "show_above_auto": "Die Anzeigeschwelle darf nicht über der Schwelle für die Selbstbenennung liegen."
     },
     "abort": {
       "no_cycles": "Noch keine abgeschlossenen Zyklen."
@@ -138,7 +145,45 @@
         "rename": "Umbenennen",
         "delete": "Löschen",
         "rename_prompt": "Neuer Name für {program}",
-        "delete_confirm": "{program} löschen? Die Läufe bleiben erhalten, ohne Programm."
+        "delete_confirm": "{program} löschen? Die Läufe bleiben erhalten, ohne Programm.",
+        "cost_so_far": "Kosten bisher",
+        "statistics": "Statistik je Programm",
+        "runs": "Läufe",
+        "avg_duration": "Ø Dauer",
+        "avg_energy": "Ø Energie",
+        "avg_cost": "Ø Kosten",
+        "per_week": "Pro Woche",
+        "statistics_help": "Aus den gespeicherten, vollständigen Läufen mit Programm. Kosten nur für Läufe mit bekanntem Strompreis.",
+        "evaluation": "Auswertung",
+        "evaluation_pending": "Die Auswertung läuft kurz nach dem Start und nach jeder Änderung.",
+        "evaluation_empty": "Noch nichts auszuwerten: Ein Programm braucht mindestens zwei benannte Läufe.",
+        "now_show": "Anzeige jetzt",
+        "now_auto": "Benennung jetzt",
+        "recommend_need": "Für eine Empfehlung braucht es mindestens {count} ausgewertete Läufe.",
+        "recommend": "Empfehlung: anzeigen ab {show}, selbst benennen ab {auto}.",
+        "recommend_applied": "eingestellt",
+        "apply": "Übernehmen",
+        "apply_confirm": "Programme ab {show} anzeigen und ab {auto} selbst benennen? Das Gerät lädt dafür kurz neu.",
+        "evaluation_intro": "Jeder gespeicherte, benannte Lauf wird gegen die übrigen Läufe als Referenzen nachgespielt ({count} Läufe), als liefe er jetzt noch einmal.",
+        "thresholds": "Schwellen",
+        "threshold": "Schwelle",
+        "wrong_shown": "Falsch gezeigt",
+        "never_shown": "Nie gezeigt",
+        "shown_after": "Richtig ab",
+        "auto_correct": "Benennung richtig",
+        "auto_wrong": "Benennung falsch",
+        "auto_missed": "Nicht benannt",
+        "remaining_accuracy": "Restzeit",
+        "at_progress": "Bei",
+        "mean_error": "Ø Abweichung",
+        "bias": "Tendenz",
+        "evaluation_help": "Falsch gezeigt: Läufe, die zwischendurch ein falsches Programm gezeigt hätten. Richtig ab: Median der Minute, ab der das richtige Programm erschien. Tendenz: + heißt, die Restzeit war zu lang, − zu kurz.",
+        "retro": "nachträglich",
+        "replay": "Nachgespielt",
+        "replay_shown": "richtiges Programm ab Minute {minute}",
+        "replay_never": "richtiges Programm nie gezeigt",
+        "replay_wrong": "zwischendurch ein falsches Programm",
+        "replay_remaining": "Restzeit bei der Hälfte {offset}"
       }
     }
   },
@@ -198,6 +243,12 @@
       },
       "progress": {
         "name": "Fortschritt"
+      },
+      "cycle_cost": {
+        "name": "Kosten des Zyklus"
+      },
+      "last_cycle_cost": {
+        "name": "Kosten des letzten Zyklus"
       }
     },
     "select": {

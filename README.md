@@ -74,6 +74,7 @@ Lauf bearbeiten oder fertig.
 | `text.<name>_new_program` | Neues Programm anlegen und dem laufenden bzw. letzten Zyklus zuordnen |
 | `sensor.<name>_recognition_confidence` | Sicherheit der Erkennung im laufenden Zyklus (%) |
 | `sensor.<name>_recognition_accuracy` | Trefferquote der Erkennung (%), je Programm als Attribut |
+| `sensor.<name>_cycle_cost` / `_last_cycle_cost` | Kosten des laufenden bzw. letzten Zyklus (nur mit Strompreis) |
 | `sensor.<name>_time_remaining` | Restzeit (min) |
 | `sensor.<name>_expected_end` | Voraussichtliches Ende (Uhrzeit) |
 | `sensor.<name>_progress` | Fortschritt (%) |
@@ -102,6 +103,18 @@ data:
 
 ## Automationen
 
+**Benachrichtigungen per Blueprint:** zwei fertige Vorlagen für die Companion-App, Import mit einem
+Klick:
+
+- [**Meldung, wenn fertig**](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FRookieIVG%2FWashRData%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fwashrdata%2Fnotify_finished.yaml): Gerät und Handy wählen, fertig. Der Text
+  enthält Programm, Dauer, Energie und Kosten; abgebrochene Läufe werden ausgelassen.
+- [**Vorwarnung vor dem Ende**](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FRookieIVG%2FWashRData%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fwashrdata%2Fnotify_ending_soon.yaml): Restzeit-Sensor und Minuten wählen
+  (Standard 10). Braucht ein erkanntes Programm, sonst gibt es keine Restzeit.
+
+Titel und Text sind anpassbar, weitere Aktionen (Licht, Sprachausgabe) lassen sich anhängen.
+
+Eigene Automationen:
+
 Events: `washrdata_cycle_started`, `washrdata_program_detected`, `washrdata_cycle_finished`,
 `washrdata_cycle_resumed`, `washrdata_anti_crease_started`, `washrdata_anti_crease_ended`.
 `washrdata_program_detected` enthält zusätzlich `program`, `confidence` und `remaining_min`.
@@ -123,6 +136,15 @@ actions:
         {{ trigger.event.data.cycle.energy_kwh }} kWh.
 ```
 
+## Kosten
+
+In **Konfigurieren > Erkennungseinstellungen** eine Entität mit dem Strompreis pro kWh wählen, z. B.
+`input_number.strompreis_energie`. Preise in ct/kWh werden in Euro umgerechnet. Die Kosten laufen
+während des Zyklus mit: Ändert sich der Preis (dynamischer Tarif), gilt ab dann der neue. Dazu kommen
+`sensor.<name>_cycle_cost` und `sensor.<name>_last_cycle_cost`, die Kosten stehen im Event
+`washrdata_cycle_finished`, in der App und in der Statistik je Programm. Läufe von vor der Einrichtung
+haben keine Kosten.
+
 ## WashRData-App
 
 In der Seitenleiste steht der Menüpunkt **WashRData**, für alle Benutzer. Er zeigt je Gerät:
@@ -133,10 +155,18 @@ In der Seitenleiste steht der Menüpunkt **WashRData**, für alle Benutzer. Er z
 - **Zyklen:** alle gespeicherten Läufe mit Kurve, Programm (direkt änderbar, auch neu anlegen) und
   was die Erkennung gesagt hat (✓ Treffer, ✗ Fehler). Ein Klick auf den Lauf zeigt die große Kurve,
   wahlweise über den Referenzen eines Programms: So sieht man, warum etwas verwechselt wurde.
+- **Statistik je Programm:** Zahl der Läufe, Ø Dauer mit Spanne, Ø Energie, Ø Kosten, Läufe pro Woche.
+- **Auswertung:** Jeder gespeicherte, benannte Lauf wird gegen die übrigen als Referenzen
+  nachgespielt, Minute für Minute. Die Tabelle zeigt je Schwelle, wie oft zwischendurch ein falsches
+  Programm erschienen wäre, ab welcher Minute das richtige erscheint und wie die Selbstbenennung
+  ausgegangen wäre. Dazu kommt die Genauigkeit der Restzeit bei 25, 50 und 75 % des Laufs (Ø
+  Abweichung und Tendenz). Ab fünf ausgewerteten Läufen schlägt die App Schwellen vor, ein Klick auf
+  **Übernehmen** stellt sie ein. Von Hand geht das unter **Konfigurieren > Erkennungseinstellungen**.
 - **Programme:** umbenennen und löschen.
 
-Gewertet werden Läufe ab Version 0.2.4. Treffer heißt: Die Erkennung war sich am Ende sicher
-(mindestens 60 %) und lag richtig, du musstest nicht korrigieren.
+Treffer heißt: Die Erkennung war sich am Ende sicher (ab der Schwelle für die Selbstbenennung) und lag
+richtig, du musstest nicht korrigieren. Läufe von vor Version 0.2.4 werden einmalig nachträglich
+bewertet (Markierung „nachträglich“), damit die Quote nicht bei null anfängt.
 
 ## Läufe grafisch ansehen
 

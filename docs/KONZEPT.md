@@ -1,6 +1,6 @@
 # WashRData: Konzept
 
-Stand: Version 0.2.4 (Programme und Erkennung), Oktober 2026.
+Stand: Version 0.2.5 (Programme und Erkennung), Oktober 2026.
 
 ## Ziel
 
@@ -153,9 +153,9 @@ es aber nicht automatisch benannt. Sobald es einmal von Hand benannt ist, werden
 
 | Schwelle | Wert | Wirkung |
 | :--- | :--- | :--- |
-| Anzeige | ≥ 25 % ab 5 min Laufzeit | Programm, Restzeit, Fortschritt und Ende-Uhrzeit werden gezeigt |
+| Anzeige | ≥ 25 % ab 5 min Laufzeit (einstellbar) | Programm, Restzeit, Fortschritt und Ende-Uhrzeit werden gezeigt |
 | Ende zurückhalten | ≥ 50 % und noch ≥ 10 min Rest | Eine ruhige Phase beendet den Zyklus erst nach der maximalen Endverzögerung |
-| Selbst benennen | ≥ 60 % am Ende, Länge passt (Faktor ≤ 1,4) | Zyklus bekommt das Programm (`program_source: auto`) |
+| Selbst benennen | ≥ 60 % am Ende (einstellbar), Länge passt (Faktor ≤ 1,4) | Zyklus bekommt das Programm (`program_source: auto`) |
 
 Am Ende zählt der Vergleich bis zum Beginn der letzten Ruhephase, nicht die Ruheminuten danach.
 Eine Auswahl von Hand während des Laufs gewinnt immer: Restzeit und Fortschritt kommen dann aus den
@@ -168,8 +168,30 @@ Referenzen hatten (`known_programs`). Bewertet werden vollständige, benannte L�
 darunter war. Ein Treffer ist eine sichere Erkennung (≥ 60 %, die Schwelle der Selbstbenennung) genau
 dieses Programms. Jede Korrektur einer Selbstbenennung und jeder von Hand benannte Lauf, den die
 Erkennung verfehlt hat, ist ein Fehler. Läufe von vor 0.2.4 haben diese Angaben nicht und zählen
-nicht. Live zeigt `sensor.<name>_recognition_confidence` die Sicherheit der Erkennung, auch während
-ein von Hand gewähltes Programm sie überstimmt.
+nicht, bis die Auswertung sie nachträglich bewertet (`recognition_retro`, siehe unten). Live zeigt
+`sensor.<name>_recognition_confidence` die Sicherheit der Erkennung, auch während ein von Hand
+gewähltes Programm sie überstimmt.
+
+**Auswertung (leave-one-out).** `engine/evaluation.py` spielt jeden gespeicherten, benannten,
+vollständigen Lauf Minute für Minute nach, mit den übrigen Läufen als Referenzen (ein Lauf ist nie
+seine eigene Referenz). Je Minute hält sie fest, was die Erkennung allein sagt und wie sicher, und
+welche Restzeit die Referenzen des wirklichen Programms ergeben. Daraus:
+
+- je Schwelle von 15 bis 80 %: Läufe, die zwischendurch ein falsches Programm gezeigt hätten; Läufe,
+  die das richtige nie gezeigt hätten; Median der Minute, ab der das richtige erscheint; wie die
+  Selbstbenennung am Ende ausginge (richtig, falsch, keine),
+- die Restzeit bei 25, 50 und 75 % des Laufs: mittlere absolute Abweichung und Tendenz
+  (vorhergesagt minus tatsächlich, + heißt zu lang),
+- eine Empfehlung ab fünf ausgewerteten Läufen: Anzeige ab der niedrigsten Schwelle (mindestens
+  15 %), bei der höchstens 10 % der Läufe zwischendurch falsch gezeigt hätten; Selbstbenennung ab der
+  niedrigsten Schwelle (mindestens 40 %) ohne falsche Benennung; die Anzeigeschwelle nie über der
+  für die Selbstbenennung.
+
+Läufe ohne festgehaltene Erkennung (vor 0.2.4) bekommen einmalig das nachgespielte Ergebnis. Die
+Auswertung läuft 30 s nach dem Start und nach jeder Änderung (beendeter Lauf, Benennung) in einem
+eigenen Thread auf einer Kopie der Zyklen; eine volle Historie braucht etwa eine Sekunde. Das
+Ergebnis steht im Panel und im Diagnose-Download. Die Schwellen für Anzeige und Selbstbenennung sind
+je Gerät einstellbar (Optionen oder „Übernehmen“ im Panel), Standard 25 und 60 %.
 
 **Speicher.** Die letzten 50 Zyklen bleiben erhalten, dazu je Programm die letzten 10 benannten,
 auch wenn sie älter sind.
@@ -201,6 +223,7 @@ Gespeichert wird verzögert (30 s) und sofort am Zyklusende.
 | `select.<name>_program` | Programm des laufenden, sonst des letzten Zyklus; Auswahl benennt ihn |
 | `sensor.<name>_recognition_confidence` | Sicherheit der Erkennung im laufenden Zyklus (%), Attribut `program` |
 | `sensor.<name>_recognition_accuracy` | Trefferquote der Erkennung (%), Attribute `cycles`, `hits`, `programs` |
+| `sensor.<name>_cycle_cost`, `_last_cycle_cost` | Kosten des laufenden bzw. letzten Zyklus, nur mit Strompreis-Entität |
 | `sensor.<name>_time_remaining` | Restzeit (min) |
 | `sensor.<name>_expected_end` | Voraussichtliches Ende (Zeitstempel) |
 | `sensor.<name>_progress` | Fortschritt (%) |
@@ -218,8 +241,13 @@ Dienste: `washrdata.label_cycle`, `create_program`, `rename_program`, `delete_pr
 Benutzer). Sie ist eine Web-Komponente ohne Build-Schritt (`frontend/washrdata-panel.js`), die
 `panel.py` ausliefert und registriert. Daten kommen über WebSocket-Befehle (`websocket.py`):
 `washrdata/overview` liefert je Gerät Zustand, laufenden Zyklus mit Erkennung, Programme,
-Genauigkeit und alle Zyklen mit Kurve (Mittelwert pro Minute), `washrdata/subscribe` meldet
-Änderungen, `washrdata/label`, `rename_program` und `delete_program` ändern. Das Panel zeigt:
+Genauigkeit, Auswertung, Schwellen und alle Zyklen mit Kurve (Mittelwert pro Minute) und eine
+`revision`. `washrdata/subscribe` meldet Änderungen; das Panel holt dann höchstens alle 5 s nur
+`washrdata/live` (laufender Zyklus und `revision`) und die ganze Übersicht erst, wenn sich die
+`revision` geändert hat (gespeicherte Zyklen, Programme, Auswertung). `washrdata/label`,
+`rename_program`, `delete_program` und `set_thresholds` ändern. Ein Browser-Test
+(`tests/frontend/panel_smoke.mjs`) lädt das Panel in Chromium mit Daten, die ein Integrationstest aus
+einem echten Home Assistant schreibt, und prüft Anzeige und Bedienung. Das Panel zeigt:
 den laufenden Zyklus mit Live-Sicherheit und Kurve über den Referenzen, die Trefferquote gesamt und
 je Programm, alle Zyklen mit Kurve, Programm (direkt änderbar), Erkennung und Treffer/Fehler, beim
 Aufklappen die große Kurve im Vergleich mit den Referenzen eines wählbaren Programms, und die
@@ -230,7 +258,17 @@ Events: `washrdata_cycle_started`, `washrdata_program_detected`, `washrdata_cycl
 `washrdata_cycle_resumed`, `washrdata_anti_crease_started`, `washrdata_anti_crease_ended`. Jedes
 Event enthält `entry_id`, `name`, `device_type` und eine Zusammenfassung des Zyklus (Start, Ende,
 Dauer, Energie, Spitzenleistung, `interrupted`, `resumed`, `anti_crease_bursts`, `program`,
-`program_source`, `match_confidence`, `recognised`). `program_detected` enthält zusätzlich `program`, `confidence`
+`program_source`, `match_confidence`, `recognised`, `cost`).
+
+**Kosten.** Mit einer Strompreis-Entität in den Optionen (`input_number`, `number` oder `sensor`, Preis
+pro kWh, ct/kWh wird umgerechnet) rechnet der Detector jedes Energie-Stück mit dem gerade gültigen
+Preis ab (`CycleRecord.cost`). Ein Preiswechsel während des Laufs gilt ab dann; solange der Preis
+unbekannt ist, kommt nichts dazu.
+
+**Blueprints.** `blueprints/automation/washrdata/`: `notify_finished.yaml` (Event
+`washrdata_cycle_finished`, gefiltert auf das gewählte Gerät, Meldung an die Companion-App) und
+`notify_ending_soon.yaml` (Restzeit-Sensor fällt unter N Minuten). Getestet in einem echten Home
+Assistant, die Meldung durch ein Event ersetzt. `program_detected` enthält zusätzlich `program`, `confidence`
 und `remaining_min`.
 
 ## Roadmap
@@ -243,6 +281,7 @@ und `remaining_min`.
 | **0.2.2** | Repository zu RookieIVG umgezogen: Links und Codeowner im Manifest angepasst |
 | **0.2.3** | Optionen-Dialog „Zyklen bearbeiten“: gespeicherte Zyklen mit Start, Dauer, Energie, Programm, Herkunft und Kurve als Textgrafik; Programm prüfen, korrigieren oder neu anlegen |
 | **0.2.4** | WashRData-App in der Seitenleiste: laufender Zyklus, Zyklen mit Kurve und Kurvenvergleich mit Referenzen, Programm direkt korrigieren, Programme umbenennen und löschen; Erkennung wird pro Lauf festgehalten; Sensoren Erkennungssicherheit (live) und Trefferquote, gesamt und je Programm |
+| **0.2.5** | Auswertung der gespeicherten Läufe (leave-one-out): Schwellen-Tabelle mit Empfehlung zum Übernehmen, Genauigkeit der Restzeit, ältere Läufe nachträglich bewertet; Schwellen für Anzeige und Selbstbenennung einstellbar; Kosten pro Lauf aus einer Strompreis-Entität; Statistik je Programm; Blueprints für „fertig“ und Vorwarnung; Panel lädt nur noch den laufenden Zyklus nach; Browser-Test des Panels in der CI |
 | **0.2.x** | Kalibrierung der Schwellen an echten Kurven aus Diagnose-Dateien (Testkorpus, Leave-one-out-Messung); bei Bedarf Import alter Zyklen aus dem Recorder |
 | **0.3 Zusatzsensoren und Benachrichtigungen** | Türkontakt (Ende bestätigen, Erinnerung „Wäsche noch drin“), Vibrationssensor (Pause oder Ende unterscheiden, Leistung allein reicht dafür nicht immer), Wasserzähler; Blueprints für Benachrichtigungen, Vorwarnung vor dem Ende |
 | **0.4 Kosten und Tarife** | Kosten pro Zyklus mit fester oder dynamischer Preis-Entität (Tibber, Nordpool, EPEX); Empfehlung für die günstigste Startzeit: Programmprofil mal Preiskurve; Startzeit nach PV-Prognose (Forecast.Solar, Solcast) |
