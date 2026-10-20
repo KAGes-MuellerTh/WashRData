@@ -6,7 +6,13 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlowWithReload
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigEntryState,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlowWithReload,
+)
 from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
 from homeassistant.helpers import selector
@@ -15,13 +21,18 @@ from .const import (
     CONF_DEVICE_TYPE,
     CONF_POWER_SENSOR,
     DOMAIN,
+    NO_PROGRAM,
     OPT_ANTI_CREASE,
     OPT_END_DELAY_MIN,
     OPT_START_POWER,
     OPT_STOP_POWER,
     build_config,
 )
-from .engine import DeviceType
+from .cycle_view import async_words, cycle_label, program_text, sparkline
+from .engine import CycleRecord, DeviceType
+
+CONF_CYCLE = "cycle"
+CONF_PROGRAM = "program"
 
 
 def _watts() -> selector.NumberSelector:
@@ -65,7 +76,14 @@ class WashRDataConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class WashRDataOptionsFlow(OptionsFlowWithReload):
+    """Detection settings, and the cycle history to check and correct programs."""
+
+    _cycle: CycleRecord | None = None
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        return self.async_show_menu(step_id="init", menu_options=["settings", "cycles"])
+
+    async def async_step_settings(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             if user_input[OPT_STOP_POWER] > user_input[OPT_START_POWER]:
@@ -94,4 +112,83 @@ class WashRDataOptionsFlow(OptionsFlowWithReload):
         )
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
-        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
+        return self.async_show_form(step_id="settings", data_schema=schema, errors=errors)
+
+    def _history(self) -> list[CycleRecord]:
+        if self.config_entry.state is not ConfigEntryState.LOADED:
+            return []
+        return self.config_entry.runtime_data.tracker.history
+
+    async def async_step_cycles(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        history = self._history()
+        if user_input is not None:
+            self._cycle = next((c for c in history if c.id == user_input[CONF_CYCLE]), None)
+            if self._cycle is not None:
+                return await self.async_step_cycle()
+        if not history:
+            return self.async_abort(reason="no_cycles")
+
+        words = await async_words(self.hass)
+        language = self.hass.config.language
+        options = [
+            selector.SelectOptionDict(value=c.id, label=cycle_label(c, words, language))
+            for c in reversed(history)
+        ]
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_CYCLE, default=options[0]["value"]): selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=options, mode=selector.SelectSelectorMode.DROPDOWN)
+                )
+            }
+        )
+        return self.async_show_form(
+            step_id="cycles", data_schema=schema, description_placeholders={"count": str(len(history))}
+        )
+
+    async def async_step_cycle(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        cycle = self._cycle
+        assert cycle is not None
+        device = self.config_entry.runtime_data
+        words = await async_words(self.hass)
+        language = self.hass.config.language
+        if user_input is not None:
+            program = str(user_input[CONF_PROGRAM]).strip()
+            device.tracker.label(cycle.id, None if program in ("", NO_PROGRAM) else program)
+            device.changed(save_now=True)
+            return await self.async_step_saved()
+
+        options = [
+            selector.SelectOptionDict(value=NO_PROGRAM, label=words[NO_PROGRAM]),
+            *(selector.SelectOptionDict(value=p, label=p) for p in device.tracker.programs),
+        ]
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_PROGRAM, default=cycle.program or NO_PROGRAM): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=options, custom_value=True, mode=selector.SelectSelectorMode.DROPDOWN
+                    )
+                )
+            }
+        )
+        return self.async_show_form(
+            step_id="cycle",
+            data_schema=schema,
+            description_placeholders={
+                "cycle": cycle_label(cycle, words, language, curve=0),
+                "peak": f"{round(cycle.peak_power_w)} W",
+                "curve": sparkline(cycle, 40),
+            },
+        )
+
+    async def async_step_saved(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        assert self._cycle is not None
+        words = await async_words(self.hass)
+        return self.async_show_menu(
+            step_id="saved",
+            menu_options=["cycles", "done"],
+            description_placeholders={"program": program_text(self._cycle, words, self.hass.config.language)},
+        )
+
+    async def async_step_done(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        # Labels are saved already; unchanged options do not reload the entry.
+        return self.async_create_entry(data=dict(self.config_entry.options))
