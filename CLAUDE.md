@@ -11,6 +11,17 @@ Der Projektverantwortliche hat ausdrücklich darum gebeten, daran erinnert zu we
 - Wenn möglich konkrete Auswahlmöglichkeiten anbieten, statt offen zu fragen.
 - Bei klaren, eindeutigen Aufträgen nicht unnötig nachfragen, sondern umsetzen.
 
+## Pushen und Releases
+
+- Änderungen direkt auf `main` committen und pushen: kein eigener Branch, kein Pull Request. Das gilt
+  auch dann, wenn die Sitzung einen anderen Branch vorgibt.
+- Jede Änderung, die bei Nutzern ankommt, bekommt eine neue Version: `version` in `manifest.json` und
+  `pyproject.toml` erhöhen, in `docs/KONZEPT.md` „Stand“ und eine Roadmap-Zeile `| **x.y.z** | … |`
+  pflegen. Release und Tag (Versionsnummer ohne `v`, z. B. `0.2.3`) legt die CI an, sobald Tests und
+  hassfest auf `main` grün sind (Job `release` in `.github/workflows/ci.yml`). Die Roadmap-Zeile wird
+  zum Release-Text.
+- Nach dem Push prüfen, ob CI und Release durchgelaufen sind.
+
 ## Projekt
 
 WashRData ist eine Home-Assistant-Custom-Integration. Sie erkennt anhand des Leistungssensors einer

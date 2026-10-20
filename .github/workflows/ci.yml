@@ -33,3 +33,26 @@ jobs:
           category: integration
           # Only needed to be listed in the HACS default store; custom repositories work without.
           ignore: brands description topics
+
+  release:
+    # Every new version in the manifest on main becomes a release, once the checks pass.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [tests, hassfest]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create release for the manifest version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(jq -r .version custom_components/washrdata/manifest.json)
+          if gh release view "$version" >/dev/null 2>&1; then
+            echo "Release $version exists"
+            exit 0
+          fi
+          # Release notes: the roadmap row of this version in the concept.
+          notes=$(grep -F "| **$version** |" docs/KONZEPT.md | sed -E 's/^\| \*\*[^*]+\*\* \| (.*) \|$/\1/')
+          gh release create "$version" --target "$GITHUB_SHA" --title "$version" \
+            --notes "${notes:-Version $version}"
