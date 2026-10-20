@@ -31,4 +31,5 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          ignore: brands
+          # Only needed to be listed in the HACS default store; custom repositories work without.
+          ignore: brands description topics license
