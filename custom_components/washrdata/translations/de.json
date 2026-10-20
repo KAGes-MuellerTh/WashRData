@@ -91,6 +91,55 @@
         "auto": "erkannt",
         "interrupted": "abgebrochen"
       }
+    },
+    "panel": {
+      "options": {
+        "now": "Jetzt",
+        "no_devices": "Noch kein WashRData-Gerät eingerichtet.",
+        "no_curve": "Noch keine Leistungskurve.",
+        "state_idle": "Bereit",
+        "state_starting": "Startet",
+        "state_running": "Läuft",
+        "state_paused": "Pausiert",
+        "state_finished": "Fertig",
+        "state_anti_crease": "Knitterschutz",
+        "program": "Programm",
+        "manual": "von Hand",
+        "auto": "erkannt",
+        "unknown": "unbekannt",
+        "recognition": "Erkennung",
+        "too_early": "ab 5 Minuten",
+        "remaining": "Restzeit",
+        "running_for": "Läuft seit",
+        "this_cycle": "Dieser Lauf",
+        "references_of": "Referenzen von {program}",
+        "no_references": "{program} hat noch keine Referenzen",
+        "accuracy": "Erkennungsgenauigkeit",
+        "hits_of": "{hits} von {cycles} bewerteten Läufen richtig erkannt",
+        "no_rated": "Noch keine bewerteten Läufe.",
+        "rated": "Bewertet",
+        "hits": "Treffer",
+        "rate": "Quote",
+        "references": "Referenzen",
+        "accuracy_help": "Bewertet werden vollständige, benannte Läufe, deren Programm schon Referenzen hatte. Ein Treffer ist eine sichere Erkennung (mindestens 60 %) genau dieses Programms; jede Korrektur zählt als Fehler.",
+        "not_rated": "nicht bewertet",
+        "none": "Kein Programm",
+        "new_program": "Neues Programm …",
+        "new_program_prompt": "Name des neuen Programms",
+        "cycles": "Zyklen",
+        "no_cycles": "Noch keine abgeschlossenen Zyklen.",
+        "interrupted": "abgebrochen",
+        "reference": "Referenz",
+        "compare_with": "Vergleichen mit",
+        "nothing": "nichts",
+        "peak": "Spitze",
+        "programs": "Programme",
+        "cycle_count": "{count} Läufe",
+        "rename": "Umbenennen",
+        "delete": "Löschen",
+        "rename_prompt": "Neuer Name für {program}",
+        "delete_confirm": "{program} löschen? Die Läufe bleiben erhalten, ohne Programm."
+      }
     }
   },
   "entity": {
@@ -134,6 +183,12 @@
       },
       "program": {
         "name": "Programm"
+      },
+      "recognition_confidence": {
+        "name": "Erkennungssicherheit"
+      },
+      "recognition_accuracy": {
+        "name": "Erkennungsgenauigkeit"
       },
       "time_remaining": {
         "name": "Restzeit"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from .detector import CycleDetector
@@ -20,6 +21,22 @@ AUTO_LABEL_CONFIDENCE = 0.6
 
 CURRENT = "current"
 LAST = "last"
+
+
+@dataclass
+class ProgramAccuracy:
+    cycles: int = 0
+    hits: int = 0
+
+    @property
+    def rate(self) -> float | None:
+        return self.hits / self.cycles if self.cycles else None
+
+
+@dataclass(frozen=True)
+class Accuracy:
+    total: ProgramAccuracy
+    programs: dict[str, ProgramAccuracy]
 
 
 class Tracker:
@@ -108,14 +125,19 @@ class Tracker:
         return self._matcher
 
     def _on_finished(self, cycle: CycleRecord) -> None:
-        if self._matcher is not None and self._matcher_cycle == cycle.id and cycle.program is None:
+        # Recognition runs for labelled cycles too, so its accuracy can be measured.
+        if self._matcher is not None and self._matcher_cycle == cycle.id:
+            cycle.known_programs = sorted(self._matcher.programs)
             final = self._matcher.final(self._checkpoint)
             if final is not None:
                 program, conf = final
+                cycle.recognised = program
                 cycle.match_confidence = round(conf, 3)
-                if conf >= AUTO_LABEL_CONFIDENCE and not cycle.interrupted:
+                if cycle.program is None and conf >= AUTO_LABEL_CONFIDENCE and not cycle.interrupted:
                     cycle.program = program
                     cycle.program_source = LabelSource.AUTO
+            elif cycle.known_programs:
+                cycle.match_confidence = 0.0
         self.history.append(cycle)
         self._trim()
         self._invalidate()
@@ -186,6 +208,9 @@ class Tracker:
         for c in self._all_cycles():
             if c.program == old:
                 c.program = new
+            if c.recognised == old:
+                c.recognised = new
+            c.known_programs = [new if p == old else p for p in c.known_programs]
         self._invalidate()
 
     def delete_program(self, name: str) -> None:
@@ -196,7 +221,32 @@ class Tracker:
             if c.program == name:
                 c.program = None
                 c.program_source = None
+            if c.recognised == name:
+                c.recognised = None
+            if name in c.known_programs:
+                c.known_programs.remove(name)
         self._invalidate()
+
+    # -- accuracy --------------------------------------------------------
+
+    def accuracy(self) -> Accuracy:
+        """How often recognition named the program the cycle ended up with.
+
+        Only finished, complete, labelled cycles whose program already had
+        references count. A hit is a confident recognition (the threshold of
+        the automatic label) of exactly that program, so every correction of
+        an automatic label, and every manual label recognition missed, is a miss.
+        """
+        total = ProgramAccuracy()
+        per_program: dict[str, ProgramAccuracy] = {}
+        for c in self.history:
+            if c.interrupted or not c.program or c.program not in c.known_programs:
+                continue
+            hit = c.recognised == c.program and (c.match_confidence or 0.0) >= AUTO_LABEL_CONFIDENCE
+            for stats in (total, per_program.setdefault(c.program, ProgramAccuracy())):
+                stats.cycles += 1
+                stats.hits += hit
+        return Accuracy(total, per_program)
 
     def _all_cycles(self) -> list[CycleRecord]:
         return [*self.history, *([self.detector.cycle] if self.detector.cycle else [])]

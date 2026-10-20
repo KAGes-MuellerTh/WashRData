@@ -72,6 +72,8 @@ Lauf bearbeiten oder fertig.
 | `sensor.<name>_program` | Erkanntes oder gewähltes Programm; Attribute `confidence` (%), `candidates` |
 | `select.<name>_program` | Programm des laufenden bzw. letzten Zyklus anzeigen und setzen |
 | `text.<name>_new_program` | Neues Programm anlegen und dem laufenden bzw. letzten Zyklus zuordnen |
+| `sensor.<name>_recognition_confidence` | Sicherheit der Erkennung im laufenden Zyklus (%) |
+| `sensor.<name>_recognition_accuracy` | Trefferquote der Erkennung (%), je Programm als Attribut |
 | `sensor.<name>_time_remaining` | Restzeit (min) |
 | `sensor.<name>_expected_end` | Voraussichtliches Ende (Uhrzeit) |
 | `sensor.<name>_progress` | Fortschritt (%) |
@@ -120,6 +122,21 @@ actions:
         Waschmaschine fertig nach {{ trigger.event.data.cycle.duration_min | round }} min,
         {{ trigger.event.data.cycle.energy_kwh }} kWh.
 ```
+
+## WashRData-App
+
+In der Seitenleiste steht der Menüpunkt **WashRData**, für alle Benutzer. Er zeigt je Gerät:
+
+- **Jetzt:** Zustand, Programm, Erkennung mit Sicherheit, Restzeit und die Kurve des laufenden
+  Zyklus über den Referenzen des erkannten Programms.
+- **Erkennungsgenauigkeit:** Trefferquote gesamt und je Programm, mit Zahl der Referenzen.
+- **Zyklen:** alle gespeicherten Läufe mit Kurve, Programm (direkt änderbar, auch neu anlegen) und
+  was die Erkennung gesagt hat (✓ Treffer, ✗ Fehler). Ein Klick auf den Lauf zeigt die große Kurve,
+  wahlweise über den Referenzen eines Programms: So sieht man, warum etwas verwechselt wurde.
+- **Programme:** umbenennen und löschen.
+
+Gewertet werden Läufe ab Version 0.2.4. Treffer heißt: Die Erkennung war sich am Ende sicher
+(mindestens 60 %) und lag richtig, du musstest nicht korrigieren.
 
 ## Läufe grafisch ansehen
 

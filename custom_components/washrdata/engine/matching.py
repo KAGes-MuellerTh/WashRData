@@ -113,6 +113,9 @@ class MatchResult:
     manual: bool = False
     # (program, mean cost per minute), best first.
     candidates: tuple[tuple[str, float], ...] = ()
+    # What recognition alone says, also while a manual label overrides it.
+    recognised: str | None = None
+    recognition_confidence: float = 0.0
 
     @property
     def progress(self) -> float | None:
@@ -189,14 +192,17 @@ class ProgramMatcher:
         ranked = sorted((min(s for s, _, _ in v), p) for p, v in per_program.items())
         candidates = tuple((p, round(s, 3)) for s, p in ranked)
 
+        recognised = ranked[0][1]
+        recognition = confidence([s for s, _ in ranked])
         if forced_program is not None:
             program, conf, manual = forced_program, 1.0, True
         else:
-            conf = confidence([s for s, _ in ranked])
-            program = ranked[0][1] if conf >= SHOW_CONFIDENCE else None
+            conf = recognition
+            program = recognised if conf >= SHOW_CONFIDENCE else None
             manual = False
+        extra = {"recognised": recognised, "recognition_confidence": recognition}
         if program is None or program not in per_program:
-            return MatchResult(program, conf, manual=manual, candidates=candidates)
+            return MatchResult(program, conf, manual=manual, candidates=candidates, **extra)
 
         refs = per_program[program]
         best = min(s for s, _, _ in refs)
@@ -211,6 +217,7 @@ class ProgramMatcher:
             expected_duration_s=elapsed_s + remaining,
             manual=manual,
             candidates=candidates,
+            **extra,
         )
 
     def final(self, snapshot: _Snapshot | None = None) -> tuple[str, float] | None:

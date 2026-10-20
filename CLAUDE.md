@@ -45,6 +45,10 @@ custom_components/washrdata/
   device.py          Adapter: Sensor-Events und Ticks -> Tracker, Events, Speicher
   services.py        Dienste (label_cycle, create/rename/delete_program)
   diagnostics.py     Diagnose-Download mit allen Kurven
+  websocket.py       WebSocket-Befehle des Panels (overview, subscribe, label, rename/delete_program)
+  panel.py           Registriert das Panel in der Seitenleiste und liefert frontend/ aus
+  frontend/          washrdata-panel.js: Web-Komponente ohne Build-Schritt, Texte aus selector.panel
+  cycle_view.py      Zyklus-Zeilen und Textkurve für den Optionen-Dialog „Zyklen bearbeiten“
   sensor.py, binary_sensor.py, select.py, text.py, entity.py, config_flow.py, const.py
   strings.json, translations/{en,de}.json
   brand/             icon.png (256 px), icon@2x.png (512 px), gerendert aus tools/icon.svg

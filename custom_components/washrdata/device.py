@@ -66,6 +66,7 @@ def cycle_summary(cycle: CycleRecord) -> dict[str, Any]:
         "program": cycle.program,
         "program_source": cycle.program_source,
         "match_confidence": cycle.match_confidence,
+        "recognised": cycle.recognised,
     }
 
 

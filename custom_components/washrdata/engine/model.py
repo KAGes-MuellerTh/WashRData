@@ -132,7 +132,13 @@ class CycleRecord:
     anti_crease_bursts: int = 0
     program: str | None = None
     program_source: LabelSource | None = None
+    # Closed-end recognition at the end of the cycle: the best program and its
+    # confidence, kept when the label is changed later. Confidence 0 with no
+    # program means references existed but none fitted.
     match_confidence: float | None = None
+    recognised: str | None = None
+    # Programs that had references while the cycle ran; only these could be recognised.
+    known_programs: list[str] = field(default_factory=list)
     # (seconds since start, watts), change-compressed.
     trace: list[tuple[float, float]] = field(default_factory=list)
 

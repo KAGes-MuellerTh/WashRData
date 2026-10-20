@@ -1,13 +1,14 @@
 {
   "domain": "washrdata",
   "name": "WashRData",
+  "after_dependencies": ["frontend"],
   "codeowners": ["@RookieIVG"],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["http", "websocket_api"],
   "documentation": "https://github.com/RookieIVG/WashRData",
   "integration_type": "device",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/RookieIVG/WashRData/issues",
   "requirements": [],
-  "version": "0.2.3"
+  "version": "0.2.4"
 }

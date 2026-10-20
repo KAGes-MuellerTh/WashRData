@@ -56,6 +56,31 @@ def _program_attrs(d: WashRDataDevice) -> dict[str, Any] | None:
     }
 
 
+def _recognition(d: WashRDataDevice) -> int | None:
+    return round(d.match.recognition_confidence * 100) if d.match else None
+
+
+def _accuracy(d: WashRDataDevice) -> int | None:
+    rate = d.tracker.accuracy().total.rate
+    return None if rate is None else round(rate * 100)
+
+
+def _accuracy_attrs(d: WashRDataDevice) -> dict[str, Any]:
+    accuracy = d.tracker.accuracy()
+    return {
+        "cycles": accuracy.total.cycles,
+        "hits": accuracy.total.hits,
+        "programs": {
+            p: {
+                "cycles": a.cycles,
+                "hits": a.hits,
+                "accuracy": round(a.rate * 100) if a.rate is not None else None,
+            }
+            for p, a in accuracy.programs.items()
+        },
+    }
+
+
 def _remaining_s(d: WashRDataDevice) -> float | None:
     if d.match is None or not d.match.program:
         return None
@@ -94,6 +119,22 @@ SENSORS: tuple[WashRDataSensorDescription, ...] = (
         translation_key="program",
         value_fn=_program,
         attrs_fn=_program_attrs,
+    ),
+    WashRDataSensorDescription(
+        key="recognition_confidence",
+        translation_key="recognition_confidence",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_recognition,
+        attrs_fn=lambda d: {"program": d.match.recognised} if d.match else None,
+    ),
+    WashRDataSensorDescription(
+        key="recognition_accuracy",
+        translation_key="recognition_accuracy",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_accuracy,
+        attrs_fn=_accuracy_attrs,
     ),
     WashRDataSensorDescription(
         key="time_remaining",

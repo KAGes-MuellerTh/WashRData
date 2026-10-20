@@ -14,13 +14,14 @@ from .model import (
     LabelSource,
     State,
 )
-from .tracker import CURRENT, LAST, Tracker
+from .tracker import CURRENT, LAST, Accuracy, ProgramAccuracy, Tracker
 
 __all__ = [
     "ACTIVE_STATES",
     "CURRENT",
     "LAST",
     "PRESETS",
+    "Accuracy",
     "CycleDetector",
     "CycleRecord",
     "DetectorConfig",
@@ -30,6 +31,7 @@ __all__ = [
     "LabelSource",
     "LearnedStats",
     "MatchResult",
+    "ProgramAccuracy",
     "ProgramMatcher",
     "State",
     "Tracker",

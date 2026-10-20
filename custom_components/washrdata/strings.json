@@ -91,6 +91,55 @@
         "auto": "recognised",
         "interrupted": "interrupted"
       }
+    },
+    "panel": {
+      "options": {
+        "now": "Now",
+        "no_devices": "No WashRData appliance is set up yet.",
+        "no_curve": "No power curve yet.",
+        "state_idle": "Idle",
+        "state_starting": "Starting",
+        "state_running": "Running",
+        "state_paused": "Paused",
+        "state_finished": "Finished",
+        "state_anti_crease": "Anti-crease",
+        "program": "Program",
+        "manual": "set by hand",
+        "auto": "recognised",
+        "unknown": "unknown",
+        "recognition": "Recognition",
+        "too_early": "after 5 minutes",
+        "remaining": "Remaining",
+        "running_for": "Running for",
+        "this_cycle": "This cycle",
+        "references_of": "References of {program}",
+        "no_references": "{program} has no references yet",
+        "accuracy": "Recognition accuracy",
+        "hits_of": "{hits} of {cycles} rated cycles recognised correctly",
+        "no_rated": "No rated cycles yet.",
+        "rated": "Rated",
+        "hits": "Hits",
+        "rate": "Rate",
+        "references": "References",
+        "accuracy_help": "Rated are complete, labelled cycles whose program already had references. A hit is a confident recognition (at least 60 %) of exactly that program; every correction counts as a miss.",
+        "not_rated": "not rated",
+        "none": "No program",
+        "new_program": "New program…",
+        "new_program_prompt": "Name of the new program",
+        "cycles": "Cycles",
+        "no_cycles": "No finished cycles yet.",
+        "interrupted": "interrupted",
+        "reference": "reference",
+        "compare_with": "Compare with",
+        "nothing": "nothing",
+        "peak": "Peak",
+        "programs": "Programs",
+        "cycle_count": "{count} cycles",
+        "rename": "Rename",
+        "delete": "Delete",
+        "rename_prompt": "New name for {program}",
+        "delete_confirm": "Delete {program}? Its cycles are kept, without a program."
+      }
     }
   },
   "entity": {
@@ -134,6 +183,12 @@
       },
       "program": {
         "name": "Program"
+      },
+      "recognition_confidence": {
+        "name": "Recognition confidence"
+      },
+      "recognition_accuracy": {
+        "name": "Recognition accuracy"
       },
       "time_remaining": {
         "name": "Time remaining"

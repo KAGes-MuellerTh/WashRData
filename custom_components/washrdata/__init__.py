@@ -9,7 +9,9 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN, PLATFORMS
 from .device import WashRDataDevice
+from .panel import async_register_panel
 from .services import async_register_services
+from .websocket import async_register_websocket
 
 type WashRDataConfigEntry = ConfigEntry[WashRDataDevice]
 
@@ -18,6 +20,8 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async_register_services(hass)
+    async_register_websocket(hass)
+    await async_register_panel(hass)
     return True
 
 

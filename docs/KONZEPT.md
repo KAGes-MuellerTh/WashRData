@@ -1,6 +1,6 @@
 # WashRData: Konzept
 
-Stand: Version 0.2.3 (Programme und Erkennung), Oktober 2026.
+Stand: Version 0.2.4 (Programme und Erkennung), Oktober 2026.
 
 ## Ziel
 
@@ -161,6 +161,16 @@ Am Ende zählt der Vergleich bis zum Beginn der letzten Ruhephase, nicht die Ruh
 Eine Auswahl von Hand während des Laufs gewinnt immer: Restzeit und Fortschritt kommen dann aus den
 Referenzen des gewählten Programms, und die automatische Benennung wird nicht angewendet.
 
+**Genauigkeit.** Am Ende jedes Laufs, für den es schon Referenzen gab, hält der Zyklus fest, was die
+Erkennung allein sagt (`recognised`, `match_confidence`), auch wenn er von Hand benannt ist. Das
+bleibt beim späteren Umbenennen des Zyklus stehen. Dazu kommen die Programme, die zu dem Zeitpunkt
+Referenzen hatten (`known_programs`). Bewertet werden vollständige, benannte Läufe, deren Programm
+darunter war. Ein Treffer ist eine sichere Erkennung (≥ 60 %, die Schwelle der Selbstbenennung) genau
+dieses Programms. Jede Korrektur einer Selbstbenennung und jeder von Hand benannte Lauf, den die
+Erkennung verfehlt hat, ist ein Fehler. Läufe von vor 0.2.4 haben diese Angaben nicht und zählen
+nicht. Live zeigt `sensor.<name>_recognition_confidence` die Sicherheit der Erkennung, auch während
+ein von Hand gewähltes Programm sie überstimmt.
+
 **Speicher.** Die letzten 50 Zyklen bleiben erhalten, dazu je Programm die letzten 10 benannten,
 auch wenn sie älter sind.
 
@@ -189,6 +199,8 @@ Gespeichert wird verzögert (30 s) und sofort am Zyklusende.
 | `binary_sensor.<name>_running` | An während des ganzen Zyklus |
 | `sensor.<name>_program` | Erkanntes oder gewähltes Programm, Attribute `confidence`, `manual`, `candidates` |
 | `select.<name>_program` | Programm des laufenden, sonst des letzten Zyklus; Auswahl benennt ihn |
+| `sensor.<name>_recognition_confidence` | Sicherheit der Erkennung im laufenden Zyklus (%), Attribut `program` |
+| `sensor.<name>_recognition_accuracy` | Trefferquote der Erkennung (%), Attribute `cycles`, `hits`, `programs` |
 | `sensor.<name>_time_remaining` | Restzeit (min) |
 | `sensor.<name>_expected_end` | Voraussichtliches Ende (Zeitstempel) |
 | `sensor.<name>_progress` | Fortschritt (%) |
@@ -202,11 +214,23 @@ Gespeichert wird verzögert (30 s) und sofort am Zyklusende.
 
 Dienste: `washrdata.label_cycle`, `create_program`, `rename_program`, `delete_program`.
 
+**Panel.** Die Integration bringt eine eigene Seite in der Seitenleiste mit („WashRData“, für alle
+Benutzer). Sie ist eine Web-Komponente ohne Build-Schritt (`frontend/washrdata-panel.js`), die
+`panel.py` ausliefert und registriert. Daten kommen über WebSocket-Befehle (`websocket.py`):
+`washrdata/overview` liefert je Gerät Zustand, laufenden Zyklus mit Erkennung, Programme,
+Genauigkeit und alle Zyklen mit Kurve (Mittelwert pro Minute), `washrdata/subscribe` meldet
+Änderungen, `washrdata/label`, `rename_program` und `delete_program` ändern. Das Panel zeigt:
+den laufenden Zyklus mit Live-Sicherheit und Kurve über den Referenzen, die Trefferquote gesamt und
+je Programm, alle Zyklen mit Kurve, Programm (direkt änderbar), Erkennung und Treffer/Fehler, beim
+Aufklappen die große Kurve im Vergleich mit den Referenzen eines wählbaren Programms, und die
+Programmliste zum Umbenennen und Löschen. Texte stehen in den Übersetzungen unter
+`selector.panel`.
+
 Events: `washrdata_cycle_started`, `washrdata_program_detected`, `washrdata_cycle_finished`,
 `washrdata_cycle_resumed`, `washrdata_anti_crease_started`, `washrdata_anti_crease_ended`. Jedes
 Event enthält `entry_id`, `name`, `device_type` und eine Zusammenfassung des Zyklus (Start, Ende,
 Dauer, Energie, Spitzenleistung, `interrupted`, `resumed`, `anti_crease_bursts`, `program`,
-`program_source`, `match_confidence`). `program_detected` enthält zusätzlich `program`, `confidence`
+`program_source`, `match_confidence`, `recognised`). `program_detected` enthält zusätzlich `program`, `confidence`
 und `remaining_min`.
 
 ## Roadmap
@@ -218,6 +242,7 @@ und `remaining_min`.
 | **0.2.1** | Programm-Erkennung robuster bei nur einer Referenz (begrenzte Dehnung, „unbekannt“ als Gegenkandidat), getestet an einer echten Kurve; Textfeld „Neues Programm“ am Gerät |
 | **0.2.2** | Repository zu RookieIVG umgezogen: Links und Codeowner im Manifest angepasst |
 | **0.2.3** | Optionen-Dialog „Zyklen bearbeiten“: gespeicherte Zyklen mit Start, Dauer, Energie, Programm, Herkunft und Kurve als Textgrafik; Programm prüfen, korrigieren oder neu anlegen |
+| **0.2.4** | WashRData-App in der Seitenleiste: laufender Zyklus, Zyklen mit Kurve und Kurvenvergleich mit Referenzen, Programm direkt korrigieren, Programme umbenennen und löschen; Erkennung wird pro Lauf festgehalten; Sensoren Erkennungssicherheit (live) und Trefferquote, gesamt und je Programm |
 | **0.2.x** | Kalibrierung der Schwellen an echten Kurven aus Diagnose-Dateien (Testkorpus, Leave-one-out-Messung); bei Bedarf Import alter Zyklen aus dem Recorder |
 | **0.3 Zusatzsensoren und Benachrichtigungen** | Türkontakt (Ende bestätigen, Erinnerung „Wäsche noch drin“), Vibrationssensor (Pause oder Ende unterscheiden, Leistung allein reicht dafür nicht immer), Wasserzähler; Blueprints für Benachrichtigungen, Vorwarnung vor dem Ende |
 | **0.4 Kosten und Tarife** | Kosten pro Zyklus mit fester oder dynamischer Preis-Entität (Tibber, Nordpool, EPEX); Empfehlung für die günstigste Startzeit: Programmprofil mal Preiskurve; Startzeit nach PV-Prognose (Forecast.Solar, Solcast) |
