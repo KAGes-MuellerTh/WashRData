@@ -34,12 +34,13 @@ custom_components/washrdata/
   device.py          Adapter: Sensor-Events und Ticks -> Tracker, Events, Speicher
   services.py        Dienste (label_cycle, create/rename/delete_program)
   diagnostics.py     Diagnose-Download mit allen Kurven
-  sensor.py, binary_sensor.py, select.py, entity.py, config_flow.py, const.py
+  sensor.py, binary_sensor.py, select.py, text.py, entity.py, config_flow.py, const.py
   strings.json, translations/{en,de}.json
 tools/
   viewer.html        Kurven-Viewer für Diagnose-Dateien (eigenständige Seite, auch als Artifact veröffentlicht)
 tests/
-  engine/            reine Engine-Tests auf simulierten Leistungskurven (sim.py)
+  engine/            reine Engine-Tests auf simulierten Leistungskurven (sim.py) und echten (test_real_curves.py)
+  fixtures/          echte Zyklen aus Diagnose-Dateien, anonymisiert (Startzeit 0, keine Entitäts-IDs)
   integration/       Tests mit echtem Home Assistant (pytest-homeassistant-custom-component)
 ```
 
@@ -52,7 +53,9 @@ tests/
 - Kein Modul über ca. 600 Zeilen: lieber aufteilen. Keine Laufzeit-Abhängigkeiten (kein numpy),
   solange es ohne geht.
 - Fehlerberichte kommen meist als Diagnose-Datei (`tracker.cycles[].trace`). Ein gemeldeter
-  Erkennungsfehler wird zuerst als Test mit dieser Kurve nachgestellt, dann behoben.
+  Erkennungsfehler wird zuerst als Test mit dieser Kurve nachgestellt, dann behoben. Kurven kommen
+  nur anonymisiert nach `tests/fixtures/`: Das Repository ist öffentlich, und Zeitstempel verraten,
+  wann gewaschen wird.
 - Verhaltensänderungen an der Erkennung brauchen einen Test mit einer Leistungskurve, die den Fall
   zeigt. Der Adapter (`device.py`) wird über `tests/integration/` gegen ein echtes HA getestet,
   nicht mit `MagicMock`.

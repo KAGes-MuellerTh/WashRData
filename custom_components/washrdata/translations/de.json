@@ -108,6 +108,11 @@
           "none": "Kein Programm"
         }
       }
+    },
+    "text": {
+      "new_program": {
+        "name": "Neues Programm"
+      }
     }
   },
   "services": {

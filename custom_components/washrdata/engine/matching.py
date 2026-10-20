@@ -25,8 +25,17 @@ STEP_S = 60.0
 MIN_POINTS = 5
 # Cost of a non-diagonal DTW step, so time is only warped when it helps.
 WARP_PENALTY = 0.05
+# The running cycle may be aligned with a part of a reference at most this
+# much shorter or longer than itself (plus a few minutes of slack). Without
+# this bound a short cold program could "stall" on the first minutes of a
+# hot reference and look like a perfect, very slow match.
+MAX_STRETCH = 1.5
+STRETCH_SLACK = 5
 # Mean cost per minute at which a match counts as no match at all.
 MAX_SCORE = 0.8
+# "None of the known programs" always competes with this score, so a lone
+# program needs a clearly good match, not merely the only one.
+UNKNOWN_SCORE = 0.25
 # Reported programs need at least this confidence.
 SHOW_CONFIDENCE = 0.25
 # Closed-end matches must also have a plausible length.
@@ -117,14 +126,21 @@ def confidence(scores: Sequence[float]) -> float:
 
     Combines how good the best match is with how clearly it beats the
     runner-up: two similar programs give a low confidence until they diverge.
+    The runner-up is never worse than UNKNOWN_SCORE ("an unknown program").
     """
     if not scores:
         return 0.0
     absolute = max(0.0, 1 - scores[0] / MAX_SCORE)
-    if len(scores) == 1 or scores[1] <= 0:
-        return absolute
-    margin = (scores[1] - scores[0]) / scores[1]
+    runner_up = min(scores[1] if len(scores) > 1 else math.inf, UNKNOWN_SCORE)
+    margin = max(0.0, (runner_up - scores[0]) / runner_up)
     return absolute * min(1.0, 2 * margin)
+
+
+def _band(n: int, m: int) -> range:
+    """Reference positions the end of an n-minute query may align with."""
+    lo = min(m - 1, max(0, int(n / MAX_STRETCH) - STRETCH_SLACK))
+    hi = min(m - 1, int(n * MAX_STRETCH) + STRETCH_SLACK)
+    return range(lo, hi + 1)
 
 
 @dataclass
@@ -168,7 +184,7 @@ class ProgramMatcher:
         per_program: dict[str, list[tuple[float, int, int]]] = {}
         for ref in self._refs:
             assert ref.row is not None
-            j = min(range(len(ref.row)), key=ref.row.__getitem__)
+            j = min(_band(n, len(ref.row)), key=ref.row.__getitem__)
             per_program.setdefault(ref.program, []).append((ref.row[j] / n, j, len(ref.curve)))
         ranked = sorted((min(s for s, _, _ in v), p) for p, v in per_program.items())
         candidates = tuple((p, round(s, 3)) for s, p in ranked)

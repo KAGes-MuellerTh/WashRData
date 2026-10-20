@@ -1,6 +1,6 @@
 # WashRData: Konzept
 
-Stand: Version 0.2.0 (Programme und Erkennung), Oktober 2026.
+Stand: Version 0.2.1 (Programme und Erkennung), Oktober 2026.
 
 ## Ziel
 
@@ -127,14 +127,24 @@ bestpassenden *Anfang* der Referenz gelegt. Daraus kommen zwei Dinge:
   über die passenden Referenzen des Programms, damit verdirbt eine falsch benannte Referenz nichts.
 
 Zeitverzerrung (etwa eine längere Heizphase im Winter) kostet einen kleinen Aufschlag (0,05 pro
-Schritt). Gewarpt wird nur, wo es die Kurven wirklich besser übereinanderlegt. Die Rechnung ist
+Schritt). Gewarpt wird nur, wo es die Kurven wirklich besser übereinanderlegt. Insgesamt darf der
+bisherige Lauf höchstens auf ein 1,5-mal kürzeres oder längeres Stück der Referenz passen (plus 5 min
+Spielraum). Sonst könnte ein kurzes, kaltes Programm am Anfang einer heißen Referenz „hängen
+bleiben“ und wie eine sehr langsame, perfekte Übereinstimmung aussehen (an einer echten Kurve
+gefunden, 0.2.1). Die Rechnung ist
 inkrementell: Jede neue Minute fügt pro Referenz eine Zeile hinzu. Das sind wenige Millisekunden pro
 Minute. Ein Neuaufbau, etwa nach einem Neustart mitten im Programm, dauert im ungünstigsten Fall
 (10 Programme × 5 Referenzen, 3 h) rund 0,7 s.
 
 **Sicherheit (confidence).** Sie setzt sich zusammen aus der Güte des besten Programms
 (`1 − Distanz / 0,8`) und dem Abstand zum Zweitbesten. Zwei Programme, die gleich beginnen, ergeben
-also eine niedrige Sicherheit, bis sie sich unterscheiden.
+also eine niedrige Sicherheit, bis sie sich unterscheiden. „Kein bekanntes Programm“ tritt immer mit
+der Distanz 0,25 als Gegenkandidat an. Auch ein einzelnes Programm braucht deshalb eine wirklich gute
+Übereinstimmung, nicht nur die einzige.
+
+Grenze bei nur einer Referenz: Ein längeres, heißeres Programm lässt sich unterwegs nicht von
+demselben Programm mit kaltem Zulauf unterscheiden und kann als dieses angezeigt werden. Am Ende wird
+es aber nicht automatisch benannt. Sobald es einmal von Hand benannt ist, werden beide sicher getrennt.
 
 | Schwelle | Wert | Wirkung |
 | :--- | :--- | :--- |
@@ -200,6 +210,7 @@ und `remaining_min`.
 | :--- | :--- |
 | **0.1 Grundgerüst** (erledigt) | Engine mit Zustandsautomat, lernender Endverzögerung, Fortsetzen und Knitterschutz; Integration mit Config- und Options-Flow, Sensoren, Events, Persistenz; Waschmaschine und Trockner |
 | **0.2 Programme und Restzeit** (dieser Stand) | Programme anlegen und Zyklen benennen (Auswahl, Dienste); Erkennung per Open-End-DTW ohne numpy, mit Sicherheit; Restzeit, Fortschritt, Ende-Uhrzeit; programmabhängiges Ende; Selbstbenennung sicher erkannter Läufe; Diagnose-Download |
+| **0.2.1** | Programm-Erkennung robuster bei nur einer Referenz (begrenzte Dehnung, „unbekannt“ als Gegenkandidat), getestet an einer echten Kurve; Textfeld „Neues Programm“ am Gerät |
 | **0.2.x** | Kalibrierung der Schwellen an echten Kurven aus Diagnose-Dateien (Testkorpus, Leave-one-out-Messung); bei Bedarf Import alter Zyklen aus dem Recorder |
 | **0.3 Zusatzsensoren und Benachrichtigungen** | Türkontakt (Ende bestätigen, Erinnerung „Wäsche noch drin“), Vibrationssensor (Pause oder Ende unterscheiden, Leistung allein reicht dafür nicht immer), Wasserzähler; Blueprints für Benachrichtigungen, Vorwarnung vor dem Ende |
 | **0.4 Kosten und Tarife** | Kosten pro Zyklus mit fester oder dynamischer Preis-Entität (Tibber, Nordpool, EPEX); Empfehlung für die günstigste Startzeit: Programmprofil mal Preiskurve; Startzeit nach PV-Prognose (Forecast.Solar, Solcast) |
@@ -215,8 +226,12 @@ und `remaining_min`.
 - Erkennungstests auf drei synthetischen Programmen mit zufälliger Streuung in Dauer (±10 %) und
   Leistung (±15 %): richtiges Programm, Restzeit, Selbstbenennung, Zurückhalten des Endes,
   unbekanntes Programm, Vorrang der Hand-Auswahl.
-- Als Nächstes: echte Zyklen aus Diagnose-Dateien als Testkorpus unter `tests/fixtures/` und eine
-  Messung der Erkennungsgenauigkeit (Leave-one-out), damit Verbesserungen belegbar sind.
+- Echte Zyklen aus Diagnose-Dateien liegen anonymisiert (Startzeit 0, ohne Sensornamen) unter
+  `tests/fixtures/` und werden in `tests/engine/test_real_curves.py` geprüft: Wiederholungen mit
+  ±15–20 % Heizdauer werden erkannt (Restzeit bei Minute 80 auf 3 min genau), fremde Programme nicht
+  benannt.
+- Als Nächstes: mehr echte Zyklen und eine Messung der Erkennungsgenauigkeit (Leave-one-out), damit
+  Verbesserungen belegbar sind.
 - CI: Ruff, Tests, `hassfest`, HACS-Validierung.
 
 ## Offene Punkte

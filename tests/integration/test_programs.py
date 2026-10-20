@@ -170,3 +170,47 @@ async def test_store_of_version_0_1_loads(hass: HomeAssistant, hass_storage, was
     assert hass.states.get("sensor.washer_cycle_count").state == "3"
     assert hass.states.get("sensor.washer_last_cycle_duration").state == "60.0"
     assert hass.states.get("select.washer_program").attributes["options"] == ["none"]
+
+
+async def _type_program(hass: HomeAssistant, name: str) -> None:
+    await hass.services.async_call(
+        "text", "set_value", {"entity_id": "text.washer_new_program", "value": name}, blocking=True
+    )
+
+
+async def test_new_program_text_labels_last_cycle(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, washer_entry: MockConfigEntry
+) -> None:
+    await _setup(hass, washer_entry)
+    assert hass.states.get("text.washer_new_program").state == ""
+
+    # Without any cycle the program is only created.
+    await _type_program(hass, "Pflegeleicht")
+    assert hass.states.get("select.washer_program").attributes["options"] == ["none", "Pflegeleicht"]
+
+    await _run(hass, freezer, QUICK, 1)
+    await _type_program(hass, "  Kurz 30  ")
+    assert hass.states.get("select.washer_program").state == "Kurz 30"
+    assert hass.states.get("text.washer_new_program").state == ""
+    tracker = washer_entry.runtime_data.tracker
+    assert tracker.programs == ["Pflegeleicht", "Kurz 30"]
+    assert tracker.last_cycle.program_source == "manual"
+
+    # Blank input changes nothing.
+    await _type_program(hass, "   ")
+    assert tracker.programs == ["Pflegeleicht", "Kurz 30"]
+
+
+async def test_new_program_text_labels_running_cycle(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, washer_entry: MockConfigEntry
+) -> None:
+    await _setup(hass, washer_entry)
+    curve = vary(PROGRAMS[QUICK], 4)
+    await _play(hass, freezer, [(300, 1.5), *curve[:20]])
+    assert hass.states.get("sensor.washer_state").state == "running"
+    await _type_program(hass, "Kurz 30")
+    assert hass.states.get("sensor.washer_program").state == "Kurz 30"
+    await _play(hass, freezer, [*curve[20:], (2400, 1.5)])
+    last = hass.states.get("sensor.washer_last_cycle_duration").attributes
+    assert last["program"] == "Kurz 30"
+    assert last["program_source"] == "manual"

@@ -10,7 +10,7 @@ from homeassistant.const import Platform
 from .engine import PRESETS, DetectorConfig, DeviceType
 
 DOMAIN = "washrdata"
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.SELECT, Platform.SENSOR]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.SELECT, Platform.SENSOR, Platform.TEXT]
 
 CONF_DEVICE_TYPE = "device_type"
 CONF_POWER_SENSOR = "power_sensor"

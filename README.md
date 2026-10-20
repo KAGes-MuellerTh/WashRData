@@ -38,11 +38,11 @@ Standardwerte passen für die meisten Geräte.
 
 WashRData bringt keine Programme mit; jede Maschine ist anders. So lernt es deine:
 
-1. **Programme anlegen:** Entwicklerwerkzeuge > Aktionen > *WashRData: Programm anlegen*, Gerät
-   wählen, Name eingeben (z. B. „Baumwolle 60“). Oder direkt beim Benennen (Schritt 3) einen neuen
-   Namen über *WashRData: Zyklus benennen* vergeben.
-2. **Waschen** wie immer. Jeder Lauf wird mit Leistungskurve gespeichert.
-3. **Benennen:** in `select.<name>_program` das Programm wählen. Während eines Laufs benennt das den
+1. **Waschen** wie immer. Jeder Lauf wird mit Leistungskurve gespeichert.
+2. **Neues Programm benennen:** auf der Geräteseite in das Feld **Neues Programm** den Namen tippen
+   (z. B. „Baumwolle 60“) und bestätigen. Das legt das Programm an und ordnet es dem laufenden,
+   sonst dem letzten Zyklus zu. Danach ist das Feld wieder leer.
+3. **Bekanntes Programm benennen:** in der Auswahl **Programm** wählen. Auch das benennt den
    laufenden Zyklus, danach den letzten.
 
 Nach **zwei benannten Läufen** pro Programm erkennt WashRData es meist schon nach wenigen Minuten.
@@ -64,6 +64,7 @@ helfen mehr Läufe, oder du fasst sie zu einem Programm zusammen.
 | `binary_sensor.<name>_running` | An während des ganzen Zyklus, auch in Pausen |
 | `sensor.<name>_program` | Erkanntes oder gewähltes Programm; Attribute `confidence` (%), `candidates` |
 | `select.<name>_program` | Programm des laufenden bzw. letzten Zyklus anzeigen und setzen |
+| `text.<name>_new_program` | Neues Programm anlegen und dem laufenden bzw. letzten Zyklus zuordnen |
 | `sensor.<name>_time_remaining` | Restzeit (min) |
 | `sensor.<name>_expected_end` | Voraussichtliches Ende (Uhrzeit) |
 | `sensor.<name>_progress` | Fortschritt (%) |
