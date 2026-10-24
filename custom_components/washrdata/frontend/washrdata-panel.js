@@ -22,6 +22,7 @@ class WashRDataPanel extends HTMLElement {
     this._selected = null; // entry id
     this._open = null; // cycle id with details shown
     this._compare = {}; // cycle id -> program to compare with
+    this._splitAt = {}; // cycle id -> split point tapped in the chart, seconds
     this._loaded = false;
     this._pending = null;
     this._last = 0;
@@ -193,7 +194,8 @@ class WashRDataPanel extends HTMLElement {
 
   // Curves in watts per minute. The first is drawn on top in the accent colour.
   // Lines stretch with the card; labels are HTML so their size stays fixed.
-  _chart(series, { live = false } = {}) {
+  // `marks` are vertical lines at minutes, `plot` makes the chart tappable for that cycle id.
+  _chart(series, { live = false, marks = [], plot = null } = {}) {
     const all = series.flatMap((s) => s.curve);
     if (!all.length) return `<div class="empty">${esc(this.t("no_curve"))}</div>`;
     const peak = Math.max(...all, 10);
@@ -217,7 +219,11 @@ class WashRDataPanel extends HTMLElement {
       .reverse()
       .map((s) => `<path class="${s.main ? "main" : "ref"}${live && s.main ? " live" : ""}" d="${path(s.curve)}" />`)
       .join("");
-    return `<div class="chart"><div class="plot">
+    for (const mark of marks) {
+      grid += `<line class="mark${mark.chosen ? " chosen" : ""}" x1="${x(mark.minute)}" x2="${x(mark.minute)}" y1="0" y2="1000" />`;
+    }
+    const tap = plot ? ` data-plot="${esc(plot)}" data-minutes="${minutes}"` : "";
+    return `<div class="chart"><div class="plot${plot ? " tappable" : ""}"${tap}>
       <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img">${grid}${lines}</svg>${labels}
     </div></div>`;
   }
@@ -451,11 +457,35 @@ class WashRDataPanel extends HTMLElement {
     const options = [`<option value="">${esc(this.t("nothing"))}</option>`, ...device.programs.map((p) => `<option value="${esc(p)}"${p === compare ? " selected" : ""}>${esc(p)}</option>`)];
     return `<div class="detail">
       <label class="compare">${esc(this.t("compare_with"))} <select data-compare="${esc(c.id)}">${options.join("")}</select></label>
-      ${this._chart([{ curve: c.curve, main: true }, ...refs])}
+      ${this._chart([{ curve: c.curve, main: true }, ...refs], { marks: this._splitMarks(c), plot: c.id })}
       <div class="legend"><span class="key main"></span>${esc(this.t("this_cycle"))}${compare ? `<span class="key ref"></span>${esc(refs.length ? this.t("references_of", { program: compare }) : this.t("no_references", { program: compare }))}` : ""}</div>
       <div class="muted small">${esc(this.t("peak"))} ${c.peak_w} W</div>
       ${this._replay(c)}
+      ${this._split(c)}
     </div>`;
+  }
+
+  // Split points: the longest quiet stretches, or a point tapped in the chart.
+  _splitMarks(c) {
+    const marks = (c.split_points || []).map(([a, b]) => ({ minute: (a + b) / 120 }));
+    const chosen = this._splitAt[c.id];
+    if (chosen != null) marks.push({ minute: chosen / 60, chosen: true });
+    return marks;
+  }
+
+  _split(c) {
+    const buttons = (c.split_points || []).map(([a, b]) => {
+      const at = Math.round((a + b) / 2);
+      const label = this.t("split_at_pause", { time: this._duration(a), pause: Math.round((b - a) / 60) });
+      return `<button class="text" data-split="${esc(c.id)}" data-at="${at}">${esc(label)}</button>`;
+    });
+    const chosen = this._splitAt[c.id];
+    if (chosen != null) {
+      buttons.push(
+        `<button class="text" data-split="${esc(c.id)}" data-at="${Math.round(chosen)}">${esc(this.t("split_at", { time: this._duration(chosen) }))}</button>`
+      );
+    }
+    return `<div class="split"><span class="muted small">${esc(this.t("split_help"))}</span>${buttons.join("")}</div>`;
   }
 
   _replay(c) {
@@ -513,6 +543,17 @@ class WashRDataPanel extends HTMLElement {
     root.querySelectorAll("[data-delete]").forEach((el) =>
       el.addEventListener("click", () => this._delete(el.dataset.delete))
     );
+    root.querySelectorAll("[data-plot]").forEach((el) =>
+      el.addEventListener("click", (event) => {
+        const box = el.getBoundingClientRect();
+        const share = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
+        this._splitAt[el.dataset.plot] = share * Number(el.dataset.minutes) * 60;
+        this._render();
+      })
+    );
+    root.querySelectorAll("[data-split]").forEach((el) =>
+      el.addEventListener("click", () => this._splitCycle(el.dataset.split, Number(el.dataset.at)))
+    );
     root.querySelectorAll("[data-thresholds]").forEach((el) =>
       el.addEventListener("click", () => {
         const [show, auto] = el.dataset.thresholds.split(",").map(Number);
@@ -537,6 +578,13 @@ class WashRDataPanel extends HTMLElement {
       if (!program) return this._render();
     }
     await this._call({ type: "washrdata/label", cycle_id: cycleId, program });
+  }
+
+  async _splitCycle(cycleId, at) {
+    if (!confirm(this.t("split_confirm", { time: this._duration(at) }))) return;
+    delete this._splitAt[cycleId];
+    this._open = null;
+    await this._call({ type: "washrdata/split_cycle", cycle_id: cycleId, at_s: at });
   }
 
   async _applyThresholds(show, auto) {

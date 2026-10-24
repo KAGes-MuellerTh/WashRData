@@ -1,6 +1,6 @@
 """WebSocket commands of the WashRData panel.
 
-Any logged-in user may read and label, like the program select entity.
+Any logged-in user may read, label and split, like the program select entity.
 """
 
 from __future__ import annotations
@@ -19,7 +19,10 @@ from .device import WashRDataDevice
 from .engine import CycleRecord, MatchResult
 from .engine.evaluation import CycleEvaluation, Evaluation
 from .engine.matching import resample
+from .engine.split import quiet_stretches
 
+# Quiet stretches offered as split points per cycle.
+SPLIT_POINTS = 3
 # Curves go to the panel as one mean value per minute.
 CURVE_STEP_S = 60.0
 
@@ -141,6 +144,7 @@ def device_json(device: WashRDataDevice) -> dict[str, Any]:
         },
         "cycles": [
             cycle_json(c, refs, evaluation=_cycle_evaluation(evaluated.get(c.id), config.show_confidence))
+            | {"split_points": [[round(a), round(b)] for a, b in quiet_stretches(c, config)[:SPLIT_POINTS]]}
             for c in reversed(tracker.history)
         ],
     }
@@ -225,6 +229,31 @@ def ws_label(hass: HomeAssistant, connection: websocket_api.ActiveConnection, ms
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): "washrdata/split_cycle",
+        vol.Required("entry_id"): str,
+        vol.Required("cycle_id"): str,
+        vol.Required("at_s"): vol.Coerce(float),
+    }
+)
+@callback
+def ws_split(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Splits a stored cycle in two, e.g. two washes merged by a resume."""
+    if (device := _find(hass, connection, msg)) is None:
+        return
+    try:
+        first, second = device.tracker.split(msg["cycle_id"], msg["at_s"])
+    except KeyError:
+        connection.send_error(msg["id"], websocket_api.ERR_NOT_FOUND, "Unknown cycle")
+        return
+    except ValueError as err:
+        connection.send_error(msg["id"], websocket_api.ERR_INVALID_FORMAT, str(err))
+        return
+    device.changed(save_now=True)
+    connection.send_result(msg["id"], {"cycles": [first.id, second.id]})
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): "washrdata/rename_program",
         vol.Required("entry_id"): str,
         vol.Required("program"): str,
@@ -296,5 +325,14 @@ def ws_set_thresholds(hass: HomeAssistant, connection: websocket_api.ActiveConne
 
 @callback
 def async_register_websocket(hass: HomeAssistant) -> None:
-    for command in (ws_overview, ws_live, ws_subscribe, ws_label, ws_rename, ws_delete, ws_set_thresholds):
+    for command in (
+        ws_overview,
+        ws_live,
+        ws_subscribe,
+        ws_label,
+        ws_split,
+        ws_rename,
+        ws_delete,
+        ws_set_thresholds,
+    ):
         websocket_api.async_register_command(hass, command)

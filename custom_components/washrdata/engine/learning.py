@@ -37,6 +37,16 @@ class LearnedStats:
         if self.longest_pauses:
             self.longest_pauses.pop()
 
+    def replace(self, old: float, new: list[float]) -> bool:
+        """Swap one cycle's entry for others, e.g. after splitting it in two."""
+        for i, value in enumerate(self.longest_pauses):
+            if abs(value - old) < 1e-6:
+                entries = list(self.longest_pauses)
+                entries[i : i + 1] = new
+                self.longest_pauses = deque(entries[-HISTORY:], maxlen=HISTORY)
+                return True
+        return False
+
     def end_delay(self, config: DetectorConfig) -> float:
         learned = max(self.longest_pauses, default=0.0) * END_DELAY_FACTOR
         if learned > 0:

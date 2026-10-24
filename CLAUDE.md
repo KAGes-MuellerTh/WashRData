@@ -43,10 +43,11 @@ custom_components/washrdata/
     matching.py      Programmerkennung: Resampling, inkrementelles Open-End-DTW, Konfidenz
     tracker.py       Detector + Programme + Zyklus-Historie + Matcher eines Geräts
     evaluation.py    Leave-one-out-Auswertung: Schwellen, Restzeit-Genauigkeit, Empfehlung
+    split.py         Gespeicherten Lauf teilen (zwei Wäschen in einem), Ruhephasen als Trennstellen
   device.py          Adapter: Sensor-Events und Ticks -> Tracker, Events, Speicher
   services.py        Dienste (label_cycle, create/rename/delete_program)
   diagnostics.py     Diagnose-Download mit allen Kurven
-  websocket.py       WebSocket-Befehle des Panels (overview, subscribe, label, rename/delete_program)
+  websocket.py       WebSocket-Befehle des Panels (overview, live, subscribe, label, split_cycle, Programme, Schwellen)
   panel.py           Registriert das Panel in der Seitenleiste und liefert frontend/ aus
   frontend/          washrdata-panel.js (+ -style.js): Web-Komponente ohne Build-Schritt, Texte aus selector.panel
   cycle_view.py      Zyklus-Zeilen und Textkurve für den Optionen-Dialog „Zyklen bearbeiten“

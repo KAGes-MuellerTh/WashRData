@@ -17,6 +17,7 @@ lernt aus den eigenen Zyklen, wie lange ein Programm ruhig sein kann, ohne ferti
 - Zyklus-Erkennung mit Hysterese und Startenergie: Standby und kurze Spitzen lösen nichts aus.
 - Endverzögerung, die mitlernt: Einweichen und lange Pausen beenden den Zyklus nicht.
 - Ein zu früh beendeter Zyklus wird fortgesetzt statt geteilt, und der Fehler wird gelernt.
+- Zwei Läufe in einem (nächste Wäsche gleich hinterher)? In der App an der Pause teilen.
 - Knitterschutz beim Trockner als eigener Zustand, nicht als neuer Zyklus.
 - Programme lernen: Zyklen benennen, danach erkennt WashRData das Programm beim nächsten Lauf,
   zeigt Restzeit, Fortschritt und Ende-Uhrzeit und benennt sicher erkannte Läufe selbst.
@@ -163,6 +164,15 @@ In der Seitenleiste steht der Menüpunkt **WashRData**, für alle Benutzer. Er z
   Abweichung und Tendenz). Ab fünf ausgewerteten Läufen schlägt die App Schwellen vor, ein Klick auf
   **Übernehmen** stellt sie ein. Von Hand geht das unter **Konfigurieren > Erkennungseinstellungen**.
 - **Programme:** umbenennen und löschen.
+
+**Zwei Wäschen in einem Lauf:** Startet die nächste Wäsche kurz nach dem Ende der vorigen, innerhalb
+des Zeitfensters zum Fortsetzen (Waschmaschine 15 min, Trockner 10 min), legt WashRData beide zu einem
+Lauf zusammen. Dann den Lauf in der App aufklappen und unter der Kurve **Teilen bei …** wählen: Die
+App schlägt die Pause zwischen den Wäschen vor, du kannst auch in die Kurve tippen. Beide Teile
+bekommen eigene Energie und Kosten und lassen sich einzeln benennen. Damit es nicht wieder passiert:
+unter **Konfigurieren > Erkennungseinstellungen** das **Zeitfenster zum Fortsetzen** kürzer stellen
+als die Zeit, die du zum Umladen brauchst (z. B. 5 min). Die **maximale Endverzögerung** begrenzt, wie
+lange WashRData nach dem Gelernten auf das Ende wartet.
 
 Treffer heißt: Die Erkennung war sich am Ende sicher (ab der Schwelle für die Selbstbenennung) und lag
 richtig, du musstest nicht korrigieren. Läufe von vor Version 0.2.4 werden einmalig nachträglich

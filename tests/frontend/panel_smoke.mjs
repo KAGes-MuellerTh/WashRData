@@ -126,7 +126,7 @@ async function check(engine) {
     assert.ok(!/\b[a-z]+_[a-z_]+\b/.test(text.replace(/sensor\.\S+/g, "")), `${name}: untranslated key in panel`);
 
     // A cycle opens with its large chart over the references and the replay.
-    await panel.locator("button.row").first().click();
+    await panel.locator(`button.row[data-open="${device.cycles.find((c) => c.evaluation).id}"]`).click();
     const detail = panel.locator(".detail");
     await detail.waitFor();
     assert.ok((await detail.locator("path.ref").count()) >= 1, "references drawn");
@@ -161,6 +161,17 @@ async function check(engine) {
   await panel.locator(`select[data-label="${cycle.id}"]`).selectOption(other);
   await panel.locator(`select[data-label="${device.cycles[2].id}"]`).selectOption("__new__");
   await panel.locator("[data-thresholds]").click();
+  // The merged cycle offers its gap as split point; a tap in the chart adds another.
+  const merged = device.cycles.find((c) => c.split_points.length && c.duration_s > 5 * 3600);
+  await panel.locator(`button.row[data-open="${merged.id}"]`).click();
+  const [gapStart, gapEnd] = merged.split_points[0];
+  await panel.locator(".cycle.open").screenshot({ path: path.join(shots, `${engine}-split.png`) });
+  await panel.locator(`[data-split="${merged.id}"]`).first().click();
+  await panel.locator(`button.row[data-open="${merged.id}"]`).click();
+  const plot = panel.locator(`[data-plot="${merged.id}"]`);
+  const box = await plot.boundingBox();
+  await plot.click({ position: { x: box.width / 4, y: box.height / 2 } });
+  await panel.locator(`[data-split="${merged.id}"]`).last().click();
   await p.waitForTimeout(300);
   const sent = (await p.evaluate(() => window.calls)).filter((c) => !["frontend/get_translations", "washrdata/overview"].includes(c.type));
   assert.deepEqual(sent, [
@@ -172,6 +183,11 @@ async function check(engine) {
       show: device.evaluation.recommended_show,
       auto: device.evaluation.recommended_auto,
     },
+    { entry_id: device.entry_id, type: "washrdata/split_cycle", cycle_id: merged.id, at_s: Math.round((gapStart + gapEnd) / 2) },
+    sent[4],
   ]);
+  // The tapped point lies a quarter into the chart.
+  assert.equal(sent[4].type, "washrdata/split_cycle");
+  assert.ok(Math.abs(sent[4].at_s - merged.duration_s / 4) < 300, `tapped split at ${sent[4].at_s}`);
   console.log(`${engine}: panel smoke test passed`);
 }

@@ -1,6 +1,6 @@
 # WashRData: Konzept
 
-Stand: Version 0.2.6 (Programme und Erkennung), Oktober 2026.
+Stand: Version 0.2.7 (Programme und Erkennung), Oktober 2026.
 
 ## Ziel
 
@@ -84,13 +84,28 @@ Aktivität, nicht der Moment der Bestätigung.
 Als Endzeit zählt der Beginn der Ruhe, nicht ihr Ablauf. Die Verzögerung ist ein Mindestwert
 (Waschmaschine 5 min, Trockner 3 min). WashRData merkt sich die längste Pause der letzten 20 Zyklen und
 setzt die Verzögerung auf das 1,25-Fache plus 1 min, höchstens bis zu einer Obergrenze (Waschmaschine
-60 min, Trockner 20 min). Ein Programm mit 12 Minuten Einweichen bringt dem Gerät also bei, nicht nach
+60 min, Trockner 20 min, in den Optionen einstellbar). Ein Programm mit 12 Minuten Einweichen bringt dem Gerät also bei, nicht nach
 5 Minuten Ruhe das Ende auszurufen.
 
 **Fortsetzen statt Teilen.** Kommt innerhalb des Fortsetzungsfensters (Waschmaschine 15 min, Trockner
 10 min) nach einem Ende wieder anhaltend Leistung, wird der Zyklus wieder geöffnet (Event
 `washrdata_cycle_resumed`), statt einen zweiten anzulegen. Die Lücke zählt als Pause und fließt ins
-Lernen ein. Derselbe Fehler passiert beim nächsten Mal nicht wieder.
+Lernen ein. Derselbe Fehler passiert beim nächsten Mal nicht wieder. Das Fenster ist in den Optionen
+einstellbar, 0 schaltet das Fortsetzen ab.
+
+Die Kehrseite: Startet die nächste Wäsche innerhalb des Fensters, werden zwei Läufe zu einem (an einer
+echten Kurve gefunden, 0.2.7: zweite Wäsche 12 min nach der ersten). Die Lücke treibt dann auch die
+gelernte Endverzögerung hoch, was das nächste Zusammenlegen wahrscheinlicher macht. Abhilfe: Fenster
+kürzer als die Zeit zum Umladen stellen (z. B. 5 bis 10 min) und den Lauf teilen.
+
+**Teilen.** `engine/split.py` teilt einen gespeicherten Lauf. Liegt die Trennstelle in einer Ruhephase
+(nach der Hysterese des Detectors), endet der erste Teil an ihrem Beginn und der zweite beginnt an
+ihrem Ende; die Lücke gehört zu keinem. Energie und Kosten werden nach dem Anteil an der Kurve
+aufgeteilt, Pausen und Spitzenleistung je Teil aus der Kurve neu bestimmt. Beide Teile verlieren
+Programm und Erkennung und werden neu benannt. Der Eintrag des Laufs in der gelernten Endverzögerung
+wird durch die längsten Pausen der beiden Teile ersetzt, die Lücke vergisst das Gerät also wieder.
+Das Panel bietet die längsten Ruhephasen (ab 2 min) als Trennstelle an, man kann auch in die Kurve
+tippen (`washrdata/split_cycle`).
 
 **Knitterschutz.** Nach dem Ende eines Trocknerzyklus gelten kurze Aktivitäten (höchstens 4 min) als
 Knitterschutz. Sie werden gezählt, sind aber kein neuer Zyklus. Nach 15 Minuten ohne Bewegung (oder
@@ -286,6 +301,7 @@ und `remaining_min`.
 | **0.2.4** | WashRData-App in der Seitenleiste: laufender Zyklus, Zyklen mit Kurve und Kurvenvergleich mit Referenzen, Programm direkt korrigieren, Programme umbenennen und löschen; Erkennung wird pro Lauf festgehalten; Sensoren Erkennungssicherheit (live) und Trefferquote, gesamt und je Programm |
 | **0.2.5** | Auswertung der gespeicherten Läufe (leave-one-out): Schwellen-Tabelle mit Empfehlung zum Übernehmen, Genauigkeit der Restzeit, ältere Läufe nachträglich bewertet; Schwellen für Anzeige und Selbstbenennung einstellbar; Kosten pro Lauf aus einer Strompreis-Entität; Statistik je Programm; Blueprints für „fertig“ und Vorwarnung; Panel lädt nur noch den laufenden Zyklus nach; Browser-Test des Panels in der CI |
 | **0.2.6** | Fehlerbehebung: Die App blieb seit 0.2.5 leer (Styles per top-level await geladen, das Element war beim Anlegen durch Home Assistant noch nicht definiert). Browser-Test lädt das Panel jetzt wie Home Assistant, auch mit früh angelegtem Element, in Chromium und WebKit (iPhone) |
+| **0.2.7** | Läufe teilen: In der App einen Lauf mit zwei Wäschen an der Pause dazwischen (oder an einer angetippten Stelle) in zwei Läufe teilen; Energie und Kosten werden aufgeteilt, die Lücke aus der gelernten Endverzögerung entfernt. Zeitfenster zum Fortsetzen und maximale Endverzögerung in den Erkennungseinstellungen. Getestet an einer echten Kurve mit zwei zusammengelegten Wäschen |
 | **0.2.x** | Kalibrierung der Schwellen an echten Kurven aus Diagnose-Dateien (Testkorpus, Leave-one-out-Messung); bei Bedarf Import alter Zyklen aus dem Recorder |
 | **0.3 Zusatzsensoren und Benachrichtigungen** | Türkontakt (Ende bestätigen, Erinnerung „Wäsche noch drin“), Vibrationssensor (Pause oder Ende unterscheiden, Leistung allein reicht dafür nicht immer), Wasserzähler; Blueprints für Benachrichtigungen, Vorwarnung vor dem Ende |
 | **0.4 Kosten und Tarife** | Kosten pro Zyklus mit fester oder dynamischer Preis-Entität (Tibber, Nordpool, EPEX); Empfehlung für die günstigste Startzeit: Programmprofil mal Preiskurve; Startzeit nach PV-Prognose (Forecast.Solar, Solcast) |

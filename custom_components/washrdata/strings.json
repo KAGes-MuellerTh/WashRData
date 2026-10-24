@@ -38,7 +38,9 @@
           "anti_crease": "Anti-crease detection",
           "show_confidence": "Show program from",
           "auto_label_confidence": "Label automatically from",
-          "price_entity": "Energy price"
+          "price_entity": "Energy price",
+          "max_end_delay_min": "Maximum end delay",
+          "resume_window_min": "Resume window"
         },
         "data_description": {
           "start_power_w": "At or above this power the appliance counts as active.",
@@ -47,7 +49,9 @@
           "anti_crease": "Short drum turns after the end are anti-crease, not a new cycle.",
           "show_confidence": "Confidence from which the recognised program, remaining time and end are shown.",
           "auto_label_confidence": "Confidence at the end from which a run gets the program by itself. Not below the display threshold.",
-          "price_entity": "Entity with the price per kWh, e.g. input_number.strompreis_energie. Prices in ct/kWh are converted. Leave empty for no cost."
+          "price_entity": "Entity with the price per kWh, e.g. input_number.strompreis_energie. Prices in ct/kWh are converted. Leave empty for no cost.",
+          "max_end_delay_min": "The learned end delay never goes above this. Lower it if separate runs are merged.",
+          "resume_window_min": "Activity this soon after the end continues the same cycle (e.g. a long soak). 0 turns it off. Lower it if you start the next wash quickly."
         }
       },
       "cycles": {
@@ -183,7 +187,11 @@
         "replay_shown": "right program from minute {minute}",
         "replay_never": "right program never shown",
         "replay_wrong": "a wrong program shown in between",
-        "replay_remaining": "remaining time at half {offset}"
+        "replay_remaining": "remaining time at half {offset}",
+        "split_help": "Two runs in one? Split:",
+        "split_at_pause": "at {time} ({pause} min pause)",
+        "split_at": "at {time} (tapped)",
+        "split_confirm": "Split this cycle at {time} into two runs? Both lose their program and can be labelled again."
       }
     }
   },

@@ -42,6 +42,10 @@ export const STYLE = `
   .plot .grid { stroke: var(--divider-color); stroke-width: 1; }
   .plot path { fill: none; stroke-linejoin: round; }
   .plot .main { stroke: var(--primary-color); stroke-width: 2; }
+  .plot.tappable { cursor: crosshair; }
+  .plot .mark { stroke: var(--secondary-text-color); stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.7; }
+  .plot .mark.chosen { stroke: var(--error-color, #c62828); stroke-dasharray: none; opacity: 1; }
+  .split { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 8px; }
   .plot .ref { stroke: var(--secondary-text-color); stroke-width: 1.2; opacity: 0.45; }
   .ylabel, .xlabel { position: absolute; font-size: 11px; color: var(--secondary-text-color); white-space: nowrap; }
   .ylabel { right: calc(100% + 6px); transform: translateY(-50%); }

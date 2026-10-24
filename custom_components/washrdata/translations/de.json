@@ -38,7 +38,9 @@
           "anti_crease": "Knitterschutz erkennen",
           "show_confidence": "Programm anzeigen ab",
           "auto_label_confidence": "Selbst benennen ab",
-          "price_entity": "Strompreis"
+          "price_entity": "Strompreis",
+          "max_end_delay_min": "Maximale Endverzögerung",
+          "resume_window_min": "Zeitfenster zum Fortsetzen"
         },
         "data_description": {
           "start_power_w": "Ab dieser Leistung gilt das Gerät als aktiv.",
@@ -47,7 +49,9 @@
           "anti_crease": "Kurze Trommelbewegungen nach dem Ende sind Knitterschutz, kein neuer Zyklus.",
           "show_confidence": "Sicherheit, ab der erkanntes Programm, Restzeit und Ende angezeigt werden.",
           "auto_label_confidence": "Sicherheit am Ende, ab der ein Lauf das Programm selbst bekommt. Nicht unter der Anzeigeschwelle.",
-          "price_entity": "Entität mit dem Preis pro kWh, z. B. input_number.strompreis_energie. Preise in ct/kWh werden umgerechnet. Leer lassen für keine Kosten."
+          "price_entity": "Entität mit dem Preis pro kWh, z. B. input_number.strompreis_energie. Preise in ct/kWh werden umgerechnet. Leer lassen für keine Kosten.",
+          "max_end_delay_min": "Höher steigt die gelernte Endverzögerung nie. Niedriger stellen, wenn getrennte Läufe zusammengelegt werden.",
+          "resume_window_min": "Aktivität so kurz nach dem Ende setzt denselben Zyklus fort (z. B. langes Einweichen). 0 schaltet das ab. Niedriger stellen, wenn du die nächste Wäsche schnell startest."
         }
       },
       "cycles": {
@@ -183,7 +187,11 @@
         "replay_shown": "richtiges Programm ab Minute {minute}",
         "replay_never": "richtiges Programm nie gezeigt",
         "replay_wrong": "zwischendurch ein falsches Programm",
-        "replay_remaining": "Restzeit bei der Hälfte {offset}"
+        "replay_remaining": "Restzeit bei der Hälfte {offset}",
+        "split_help": "Zwei Läufe in einem? Teilen:",
+        "split_at_pause": "bei {time} ({pause} min Pause)",
+        "split_at": "bei {time} (angetippt)",
+        "split_confirm": "Diesen Lauf bei {time} in zwei Läufe teilen? Beide verlieren ihr Programm und können neu benannt werden."
       }
     }
   },

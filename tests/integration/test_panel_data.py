@@ -7,6 +7,7 @@ is tested against the real WebSocket format, not a hand-written copy.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from custom_components.washrdata.const import CONF_DEVICE_TYPE, CONF_POWER_SENSO
 from custom_components.washrdata.websocket import device_json
 from tests.engine.sim import vary
 from tests.engine.test_matching import COTTON, PROGRAMS, QUICK, trained
+from tests.engine.test_split import MERGED
 
 from .conftest import POWER
 from .test_programs import _play
@@ -48,6 +50,10 @@ async def test_write_panel_data(hass: HomeAssistant, freezer: FrozenDateTimeFact
         c.cost = round(c.energy_wh / 1000 * 0.32, 3)
         if i < 2:  # stored before 0.2.4: evaluated later
             c.recognised, c.known_programs = None, []
+    # Two washes merged into one, to be split.
+    last = history[-1]
+    start = last.end + 3600
+    history.append(replace(MERGED, start=start, end=start + MERGED.duration()))
     device.tracker.programs = list(bench.tracker.programs)
     device.tracker.history = history
     device.schedule_evaluation()

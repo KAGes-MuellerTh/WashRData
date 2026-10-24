@@ -25,7 +25,9 @@ from .const import (
     OPT_ANTI_CREASE,
     OPT_AUTO_LABEL_CONFIDENCE,
     OPT_END_DELAY_MIN,
+    OPT_MAX_END_DELAY_MIN,
     OPT_PRICE_ENTITY,
+    OPT_RESUME_WINDOW_MIN,
     OPT_SHOW_CONFIDENCE,
     OPT_START_POWER,
     OPT_STOP_POWER,
@@ -42,6 +44,14 @@ def _watts() -> selector.NumberSelector:
     return selector.NumberSelector(
         selector.NumberSelectorConfig(
             min=0, max=500, step=0.5, unit_of_measurement="W", mode=selector.NumberSelectorMode.BOX
+        )
+    )
+
+
+def _minutes(low: float, high: float) -> selector.NumberSelector:
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=low, max=high, step=0.5, unit_of_measurement="min", mode=selector.NumberSelectorMode.BOX
         )
     )
 
@@ -111,15 +121,9 @@ class WashRDataOptionsFlow(OptionsFlowWithReload):
             {
                 vol.Required(OPT_START_POWER, default=config.start_power_w): _watts(),
                 vol.Required(OPT_STOP_POWER, default=config.stop_power_w): _watts(),
-                vol.Required(OPT_END_DELAY_MIN, default=config.end_delay_s / 60): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=1,
-                        max=120,
-                        step=0.5,
-                        unit_of_measurement="min",
-                        mode=selector.NumberSelectorMode.BOX,
-                    )
-                ),
+                vol.Required(OPT_END_DELAY_MIN, default=config.end_delay_s / 60): _minutes(1, 120),
+                vol.Required(OPT_MAX_END_DELAY_MIN, default=config.max_end_delay_s / 60): _minutes(1, 180),
+                vol.Required(OPT_RESUME_WINDOW_MIN, default=config.resume_window_s / 60): _minutes(0, 60),
                 vol.Required(OPT_ANTI_CREASE, default=config.anti_crease): selector.BooleanSelector(),
                 vol.Required(OPT_SHOW_CONFIDENCE, default=round(config.show_confidence * 100)): _percent(),
                 vol.Required(

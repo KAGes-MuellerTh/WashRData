@@ -23,6 +23,10 @@ OPT_START_POWER = "start_power_w"
 OPT_STOP_POWER = "stop_power_w"
 OPT_END_DELAY_MIN = "end_delay_min"
 OPT_ANTI_CREASE = "anti_crease"
+# Activity this soon after an end continues the same cycle; 0 never does.
+OPT_RESUME_WINDOW_MIN = "resume_window_min"
+# Upper limit for the learned end delay.
+OPT_MAX_END_DELAY_MIN = "max_end_delay_min"
 # Recognition thresholds in percent.
 OPT_SHOW_CONFIDENCE = "show_confidence"
 OPT_AUTO_LABEL_CONFIDENCE = "auto_label_confidence"
@@ -49,10 +53,12 @@ def build_config(device_type: DeviceType, options: dict[str, Any]) -> DetectorCo
         overrides["start_power_w"] = float(options[OPT_START_POWER])
     if OPT_STOP_POWER in options:
         overrides["stop_power_w"] = float(options[OPT_STOP_POWER])
-    if OPT_END_DELAY_MIN in options:
-        end_delay = float(options[OPT_END_DELAY_MIN]) * 60
-        overrides["end_delay_s"] = end_delay
-        overrides["max_end_delay_s"] = max(preset.max_end_delay_s, end_delay)
+    end_delay = float(options.get(OPT_END_DELAY_MIN, preset.end_delay_s / 60)) * 60
+    overrides["end_delay_s"] = end_delay
+    max_end_delay = float(options.get(OPT_MAX_END_DELAY_MIN, preset.max_end_delay_s / 60)) * 60
+    overrides["max_end_delay_s"] = max(max_end_delay, end_delay)
+    if OPT_RESUME_WINDOW_MIN in options:
+        overrides["resume_window_s"] = float(options[OPT_RESUME_WINDOW_MIN]) * 60
     if OPT_ANTI_CREASE in options:
         overrides["anti_crease"] = bool(options[OPT_ANTI_CREASE])
     if OPT_SHOW_CONFIDENCE in options:

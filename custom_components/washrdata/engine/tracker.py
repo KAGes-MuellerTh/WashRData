@@ -9,6 +9,7 @@ from .detector import CycleDetector
 from .evaluation import select_references
 from .matching import MatchResult, ProgramMatcher, _Snapshot
 from .model import CycleRecord, DetectorConfig, Event, EventKind, LabelSource, State
+from .split import split_cycle
 
 KEEP_RECENT = 50
 KEEP_LABELLED_PER_PROGRAM = 10
@@ -188,6 +189,28 @@ class Tracker:
         if cycle is not self.detector.cycle:
             self._invalidate()
         return cycle
+
+    def split(self, cycle_id: str, at_s: float) -> tuple[CycleRecord, CycleRecord]:
+        """Split a stored cycle at `at_s` seconds after its start; both parts are unlabelled.
+
+        The gap between the parts no longer counts as a pause, so the learned
+        end delay forgets it.
+        """
+        cycle = next((c for c in self.history if c.id == cycle_id), None)
+        if cycle is None:
+            raise KeyError(cycle_id)
+        first, second = split_cycle(cycle, at_s, self.config)
+        i = self.history.index(cycle)
+        self.history[i : i + 1] = [first, second]
+        detector = self.detector
+        if not cycle.interrupted:
+            parts = [p.longest_pause for p in (first, second) if not p.interrupted]
+            detector.learned.replace(cycle.longest_pause, parts)
+        if detector.last_cycle is not None and detector.last_cycle.id == cycle.id:
+            detector.last_cycle = second
+        detector.cycle_count += 1
+        self._invalidate()
+        return first, second
 
     def create_program(self, name: str) -> None:
         name = name.strip()
